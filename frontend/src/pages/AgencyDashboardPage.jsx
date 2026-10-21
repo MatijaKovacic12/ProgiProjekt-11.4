@@ -1,9 +1,10 @@
-function AgencyDashboardPage({ navigate }) {
+function AgencyDashboardPage() {
   return (
-    <div style={{ padding: '1.5rem' }}>
+    <div className="page-container">
       <h2>Agency Manager Dashboard Screen (/dashboard)</h2>
-      <p>Placeholder for key business metrics, booking analytics, and report exporting.</p>
-      <button onClick={() => navigate('/login')}>Logout / Switch User</button>
+      <p style={{ color: '#4b5563' }}>
+        Placeholder for key business metrics, booking analytics, and report exporting.
+      </p>
     </div>
   );
 }
