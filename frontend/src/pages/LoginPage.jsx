@@ -1,4 +1,11 @@
-function LoginPage({ navigate }) {
+function LoginPage({ navigate, onSelectRole }) {
+  const handleRoleClick = (role, path) => {
+    if (onSelectRole) {
+      onSelectRole(role);
+    }
+    navigate(path);
+  };
+
   return (
     <div className="login-wrapper">
       <div className="login-card">
@@ -6,12 +13,8 @@ function LoginPage({ navigate }) {
           <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', color: '#111827' }}>
             Sign In
           </h2>
-          <p style={{ margin: 0, fontSize: '0.9rem', color: '#6b7280' }}>
-            Access the Tour Management &amp; Reservation Platform
-          </p>
         </div>
 
-        {/* Core Element: OAuth 2.0 / OpenID Connect login button (mocked, non-reactive) */}
         <div style={{ marginBottom: '1.75rem' }}>
           <label className="form-label" style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
             Single Sign-On Authentication
@@ -37,9 +40,6 @@ function LoginPage({ navigate }) {
             </svg>
             <span>Log in with OAuth 2.0 / OpenID Connect</span>
           </button>
-          <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.75rem', color: '#9ca3af', textAlign: 'center' }}>
-            (Mocked SSO provider integration)
-          </p>
         </div>
 
         <div style={{ position: 'relative', textAlign: 'center', margin: '1.5rem 0' }}>
@@ -59,37 +59,47 @@ function LoginPage({ navigate }) {
           </span>
         </div>
 
-        {/* Navigation/Testing: 4 distinct buttons for testing user roles */}
         <div>
-          <p style={{ fontSize: '0.85rem', color: '#4b5563', marginBottom: '0.75rem', fontWeight: 500 }}>
-            Quick Navigation by Role:
-          </p>
           <div className="role-buttons-grid">
             <button
               type="button"
               className="btn btn-primary btn-block"
-              onClick={() => navigate('/tours')}
+              onClick={() => handleRoleClick('client', '/tours')}
             >
               Regular User (Search)
             </button>
             <button
               type="button"
               className="btn btn-secondary btn-block"
-              onClick={() => navigate('/admin')}
+              onClick={() => handleRoleClick('unregistered', '/tours')}
+            >
+              Unregistered User
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              onClick={() => handleRoleClick('guide', '/guide-dashboard')}
+            >
+              Guide
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-block"
+              onClick={() => handleRoleClick('admin', '/admin')}
             >
               Admin
             </button>
             <button
               type="button"
               className="btn btn-secondary btn-block"
-              onClick={() => navigate('/organizer')}
+              onClick={() => handleRoleClick('organizer', '/organizer')}
             >
               Organizer
             </button>
             <button
               type="button"
               className="btn btn-secondary btn-block"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => handleRoleClick('manager', '/agency-manager')}
             >
               Agency Manager
             </button>

@@ -22,9 +22,12 @@ const AVAILABLE_ADDONS = [
 function AdminManagementPage() {
   const [toursList, setToursList] = useState(initialTours);
   const [bookingsList, setBookingsList] = useState(initialBookings);
-  const [notification, setNotification] = useState(null);
 
-  // Modal State
+  const [bookingSearch, setBookingSearch] = useState('');
+  const [tourFilter, setTourFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTourId, setEditingTourId] = useState(null);
   const [formData, setFormData] = useState({
@@ -35,11 +38,12 @@ function AdminManagementPage() {
     departurePoint: '',
     price: '',
     maxParticipants: '',
+    requiredGuideCount: 1,
+    poiCoordinates: '',
     scheduledTimeSlots: [],
     additionalServices: [],
   });
 
-  // Dropdown slot builder state
   const [slotPicker, setSlotPicker] = useState({
     year: '2026',
     month: '11',
@@ -48,12 +52,7 @@ function AdminManagementPage() {
     minute: '00',
   });
 
-  const showNotice = (msg) => {
-    setNotification(msg);
-    setTimeout(() => {
-      setNotification(null);
-    }, 4000);
-  };
+  // handle creating/editing tour
 
   const handleOpenAddModal = () => {
     setEditingTourId(null);
@@ -65,6 +64,8 @@ function AdminManagementPage() {
       departurePoint: 'Main Square, Zagreb',
       price: 35,
       maxParticipants: 15,
+      requiredGuideCount: 1,
+      poiCoordinates: '45.8131, 15.9775',
       scheduledTimeSlots: ['2026-11-20 10:00', '2026-11-27 10:00'],
       additionalServices: ['Audio guide'],
     });
@@ -94,6 +95,8 @@ function AdminManagementPage() {
       departurePoint: tour.departurePoint || '',
       price: tour.price || 0,
       maxParticipants: tour.maxParticipants || 10,
+      requiredGuideCount: tour.requiredGuideCount || 1,
+      poiCoordinates: tour.poiCoordinates || '',
       scheduledTimeSlots: existingSlots,
       additionalServices: tour.additionalServices || [],
     });
@@ -111,6 +114,8 @@ function AdminManagementPage() {
     setIsModalOpen(false);
     setEditingTourId(null);
   };
+
+  // handle editing time slots
 
   const handleAddSlot = (e) => {
     e.preventDefault();
@@ -158,43 +163,47 @@ function AdminManagementPage() {
                 ...formData,
                 price: Number(formData.price),
                 maxParticipants: Number(formData.maxParticipants),
+                requiredGuideCount: Number(formData.requiredGuideCount) || 1,
+                poiCoordinates: formData.poiCoordinates || '',
                 scheduledTimeSlots: formData.scheduledTimeSlots,
               }
             : t
         )
       );
-      showNotice(`Tour "${formData.title}" updated successfully.`);
     } else {
       const newTour = {
         id: Date.now(),
         ...formData,
         price: Number(formData.price) || 25,
         maxParticipants: Number(formData.maxParticipants) || 12,
-        requiredGuideCount: 1,
+        requiredGuideCount: Number(formData.requiredGuideCount) || 1,
+        poiCoordinates: formData.poiCoordinates || '',
         scheduledTimeSlots: formData.scheduledTimeSlots.length > 0
           ? formData.scheduledTimeSlots
           : ['2026-11-20 10:00'],
       };
       setToursList((prev) => [newTour, ...prev]);
-      showNotice(`New tour "${formData.title}" created successfully.`);
     }
 
     handleCloseModal();
+  };
+
+  const handleDeleteTour = (tourId) => {
+    setToursList((prev) => prev.filter((t) => t.id !== tourId));
   };
 
   const handleChangeStatus = (bookingId, newStatus) => {
     setBookingsList((prev) =>
       prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
     );
-    showNotice(`Booking ${bookingId} status changed to ${newStatus}.`);
   };
+
+  // returns appropriate CSS class
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
       case 'Confirmed':
         return 'badge badge-success';
-      case 'Request':
-        return 'badge badge-warning';
       case 'Cancelled':
         return 'badge badge-danger';
       case 'Completed':
@@ -204,42 +213,50 @@ function AdminManagementPage() {
     }
   };
 
+  const uniqueTourTitles = Array.from(new Set(bookingsList.map((b) => b.tourTitle)));
+
+  // booking search/filter for admin
+
+  const filteredBookings = bookingsList.filter((b) => {
+    if (bookingSearch.trim()) {
+      const q = bookingSearch.toLowerCase().trim();
+      const nameMatch = b.userName && b.userName.toLowerCase().includes(q);
+      const emailMatch = b.userEmail && b.userEmail.toLowerCase().includes(q);
+      if (!nameMatch && !emailMatch) return false;
+    }
+    if (tourFilter && b.tourTitle !== tourFilter) {
+      return false;
+    }
+    if (statusFilter && b.status !== statusFilter) {
+      return false;
+    }
+    if (dateFilter && b.createdAt && !b.createdAt.startsWith(dateFilter)) {
+      return false;
+    }
+    return true;
+  });
+
+  const handleResetFilters = () => {
+    setBookingSearch('');
+    setTourFilter('');
+    setStatusFilter('');
+    setDateFilter('');
+  };
+
   return (
     <div className="page-container">
-      {/* Screen Title & Role Description */}
       <div style={{ marginBottom: '1.75rem' }}>
         <h2 style={{ margin: '0 0 0.4rem 0', fontSize: '1.75rem', color: '#111827' }}>
-          Administrator Management
+          Administrator Dashboard
         </h2>
-        <p style={{ margin: 0, color: '#4b5563', fontSize: '0.95rem' }}>
-          Manage catalogue tours, domain configurations, scheduled capacity, and customer reservations.
-        </p>
       </div>
 
-      {/* Notification Toast */}
-      {notification && (
-        <div className="toast-banner" role="status">
-          <span>✓ {notification}</span>
-          <button
-            type="button"
-            className="btn btn-sm btn-secondary"
-            onClick={() => setNotification(null)}
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Tour Management */}
       <section style={{ marginBottom: '2.5rem' }}>
         <div className="section-header-row">
           <div>
             <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem', color: '#1f2937' }}>
               Tour Management
             </h3>
-            <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
-              Overview of all active excursions, domain parameters, pricing, and required guides.
-            </p>
           </div>
           <button
             type="button"
@@ -259,6 +276,7 @@ function AdminManagementPage() {
                 <th>Price</th>
                 <th>Max Capacity</th>
                 <th>Required Guides</th>
+                <th>POI Coordinates</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -272,98 +290,30 @@ function AdminManagementPage() {
                   <td>€{tour.price}</td>
                   <td>{tour.maxParticipants} participants</td>
                   <td>{tour.requiredGuideCount || 1} guide(s)</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-secondary"
-                      onClick={() => handleOpenEditModal(tour)}
-                    >
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Bookings Management */}
-      <section style={{ marginBottom: '2.5rem' }}>
-        <div className="section-header-row">
-          <div>
-            <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem', color: '#1f2937' }}>
-              Bookings Management
-            </h3>
-            <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
-              Review customer reservations, chosen add-on services, and update fulfillment statuses.
-            </p>
-          </div>
-        </div>
-
-        <div className="data-table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Booking ID</th>
-                <th>Tour Name</th>
-                <th>User Name</th>
-                <th>Participant Count</th>
-                <th>Selected Add-ons</th>
-                <th>Reservation Status</th>
-                <th style={{ textAlign: 'right' }}>Status Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookingsList.map((booking) => (
-                <tr key={booking.id}>
-                  <td style={{ fontWeight: 600, color: '#0066cc' }}>{booking.id}</td>
-                  <td style={{ fontWeight: 500 }}>{booking.tourTitle}</td>
-                  <td>{booking.userName}</td>
-                  <td>{booking.participantCount} person(s)</td>
                   <td>
-                    {booking.selectedAddons && booking.selectedAddons.length > 0 ? (
-                      <span style={{ fontSize: '0.85rem', color: '#4b5563' }}>
-                        {booking.selectedAddons.join(', ')}
-                      </span>
+                    {tour.poiCoordinates ? (
+                      <code style={{ fontSize: '0.8rem', color: '#0369a1' }}>{tour.poiCoordinates}</code>
                     ) : (
-                      <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>None</span>
+                      <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Not set</span>
                     )}
-                  </td>
-                  <td>
-                    <span className={getStatusBadgeClass(booking.status)}>
-                      {booking.status}
-                    </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
                     <div className="btn-group" style={{ justifyContent: 'flex-end' }}>
                       <button
                         type="button"
                         className="btn btn-sm btn-secondary"
-                        onClick={() => handleChangeStatus(booking.id, 'Confirmed')}
-                        disabled={booking.status === 'Confirmed'}
-                        title="Mark as Confirmed"
+                        onClick={() => handleOpenEditModal(tour)}
                       >
-                        Confirm
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-secondary"
-                        onClick={() => handleChangeStatus(booking.id, 'Completed')}
-                        disabled={booking.status === 'Completed'}
-                        title="Mark as Completed"
-                      >
-                        Complete
+                        Edit
                       </button>
                       <button
                         type="button"
                         className="btn btn-sm btn-secondary"
                         style={{ color: '#b91c1c' }}
-                        onClick={() => handleChangeStatus(booking.id, 'Cancelled')}
-                        disabled={booking.status === 'Cancelled'}
-                        title="Mark as Cancelled"
+                        onClick={() => handleDeleteTour(tour.id)}
+                        title="Delete tour"
                       >
-                        Cancel
+                        Delete
                       </button>
                     </div>
                   </td>
@@ -374,7 +324,185 @@ function AdminManagementPage() {
         </div>
       </section>
 
-      {/* Add / Edit Tour Modal Placeholder with ALL domain fields */}
+      <section style={{ marginBottom: '2.5rem' }}>
+        <div className="section-header-row">
+          <div>
+            <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem', color: '#1f2937' }}>
+              Bookings Management
+            </h3>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '0.75rem',
+            marginBottom: '1rem',
+            backgroundColor: '#f8fafc',
+            padding: '1rem',
+            borderRadius: '8px',
+            border: '1px solid #e2e8f0',
+            alignItems: 'flex-end',
+          }}
+        >
+          <div>
+            <label className="form-label" htmlFor="booking-search-input">Search Client</label>
+            <input
+              id="booking-search-input"
+              type="text"
+              className="form-input"
+              placeholder="Search name or email..."
+              value={bookingSearch}
+              onChange={(e) => setBookingSearch(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="form-label" htmlFor="booking-tour-filter">Filter by Tour</label>
+            <select
+              id="booking-tour-filter"
+              className="form-select"
+              value={tourFilter}
+              onChange={(e) => setTourFilter(e.target.value)}
+            >
+              <option value="">All Tours</option>
+              {uniqueTourTitles.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="form-label" htmlFor="booking-status-filter">Filter by Status</label>
+            <select
+              id="booking-status-filter"
+              className="form-select"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="">All Statuses</option>
+              <option value="Confirmed">Confirmed</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="form-label" htmlFor="booking-date-filter">Filter by Creation Date</label>
+            <input
+              id="booking-date-filter"
+              type="date"
+              className="form-input"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+            />
+          </div>
+
+          {(bookingSearch || tourFilter || statusFilter || dateFilter) && (
+            <div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-block"
+                onClick={handleResetFilters}
+                style={{ padding: '0.55rem' }}
+              >
+                Reset Filters
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
+          Showing {filteredBookings.length} of {bookingsList.length} reservation(s)
+        </div>
+
+        <div className="data-table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Booking ID</th>
+                <th>Tour Name</th>
+                <th>User Name / Email</th>
+                <th>Participant Count</th>
+                <th>Selected Add-ons</th>
+                <th>Reservation Status</th>
+                <th style={{ textAlign: 'right' }}>Status Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredBookings.length > 0 ? (
+                filteredBookings.map((booking) => (
+                  <tr key={booking.id}>
+                    <td style={{ fontWeight: 600, color: '#0066cc' }}>{booking.id}</td>
+                    <td style={{ fontWeight: 500 }}>{booking.tourTitle}</td>
+                    <td>
+                      <div style={{ fontWeight: 500 }}>{booking.userName}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{booking.userEmail}</div>
+                    </td>
+                    <td>{booking.participantCount} person(s)</td>
+                    <td>
+                      {booking.selectedAddons && booking.selectedAddons.length > 0 ? (
+                        <span style={{ fontSize: '0.85rem', color: '#4b5563' }}>
+                          {booking.selectedAddons.join(', ')}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>None</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className={getStatusBadgeClass(booking.status)}>
+                        {booking.status}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div className="btn-group" style={{ justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => handleChangeStatus(booking.id, 'Confirmed')}
+                          disabled={booking.status === 'Confirmed'}
+                          title="Mark as Confirmed"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => handleChangeStatus(booking.id, 'Completed')}
+                          disabled={booking.status === 'Completed'}
+                          title="Mark as Completed"
+                        >
+                          Complete
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-secondary"
+                          style={{ color: '#b91c1c' }}
+                          onClick={() => handleChangeStatus(booking.id, 'Cancelled')}
+                          disabled={booking.status === 'Cancelled'}
+                          title="Mark as Cancelled"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                    No reservations match the selected search or filter criteria.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       {isModalOpen && (
         <div className="modal-backdrop" onClick={handleCloseModal}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
@@ -393,7 +521,6 @@ function AdminManagementPage() {
 
             <form onSubmit={handleSaveTour}>
               <div className="modal-body">
-                {/* 1. Title */}
                 <div>
                   <label className="form-label" htmlFor="field-tour-title">
                     Tour Title *
@@ -409,7 +536,6 @@ function AdminManagementPage() {
                   />
                 </div>
 
-                {/* 2. Description */}
                 <div>
                   <label className="form-label" htmlFor="field-tour-description">
                     Description *
@@ -425,9 +551,7 @@ function AdminManagementPage() {
                   />
                 </div>
 
-                {/* Grid row: Category & Duration */}
                 <div className="form-grid-2">
-                  {/* 3. Activity Category */}
                   <div>
                     <label className="form-label" htmlFor="field-tour-category">
                       Activity Category *
@@ -447,7 +571,6 @@ function AdminManagementPage() {
                     </select>
                   </div>
 
-                  {/* 4. Duration */}
                   <div>
                     <label className="form-label" htmlFor="field-tour-duration">
                       Duration *
@@ -464,7 +587,6 @@ function AdminManagementPage() {
                   </div>
                 </div>
 
-                {/* 5. Departure Point */}
                 <div>
                   <label className="form-label" htmlFor="field-tour-departure">
                     Departure Point *
@@ -480,9 +602,7 @@ function AdminManagementPage() {
                   />
                 </div>
 
-                {/* Grid row: Price & Capacity */}
                 <div className="form-grid-2">
-                  {/* 6. Price */}
                   <div>
                     <label className="form-label" htmlFor="field-tour-price">
                       Base Price per Person (€) *
@@ -500,7 +620,6 @@ function AdminManagementPage() {
                     />
                   </div>
 
-                  {/* 7. Capacity */}
                   <div>
                     <label className="form-label" htmlFor="field-tour-capacity">
                       Max Capacity (Participants) *
@@ -518,7 +637,38 @@ function AdminManagementPage() {
                   </div>
                 </div>
 
-                {/* 8. Scheduled Slots with Dropdown Selection */}
+                <div className="form-grid-2">
+                  <div>
+                    <label className="form-label" htmlFor="field-tour-guides">
+                      Required Guides *
+                    </label>
+                    <input
+                      id="field-tour-guides"
+                      type="number"
+                      className="form-input"
+                      min="1"
+                      value={formData.requiredGuideCount}
+                      onChange={(e) => setFormData({ ...formData, requiredGuideCount: e.target.value })}
+                      placeholder="e.g. 1"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label" htmlFor="field-tour-poi">
+                      Point-of-Interest Coordinates (Lat, Long)
+                    </label>
+                    <input
+                      id="field-tour-poi"
+                      type="text"
+                      className="form-input"
+                      value={formData.poiCoordinates}
+                      onChange={(e) => setFormData({ ...formData, poiCoordinates: e.target.value })}
+                      placeholder="e.g. 45.8131, 15.9775"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="form-label">
                     Scheduled Time Slots *
@@ -618,7 +768,6 @@ function AdminManagementPage() {
                     </button>
                   </div>
 
-                  {/* Configured Slots List (Chips) */}
                   <div
                     style={{
                       display: 'flex',
@@ -672,7 +821,6 @@ function AdminManagementPage() {
                   </div>
                 </div>
 
-                {/* 9. Add-on Services */}
                 <div>
                   <label className="form-label">
                     Add-on Services (Optional extras available for this tour)

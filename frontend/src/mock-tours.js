@@ -10,6 +10,7 @@ export const tours = [
     price: 25,
     maxParticipants: 18,
     requiredGuideCount: 1,
+    poiCoordinates: "45.8131, 15.9775",
     additionalServices: ["Audio guide", "Museum entry ticket"],
     scheduledTimeSlots: [
       "2026-11-07T10:00:00+01:00",
@@ -27,6 +28,7 @@ export const tours = [
     price: 65,
     maxParticipants: 12,
     requiredGuideCount: 2,
+    poiCoordinates: "44.8805, 15.6160",
     additionalServices: ["Transport from Zagreb", "Packed lunch"],
     scheduledTimeSlots: [
       "2026-11-08T08:30:00+01:00",
@@ -44,6 +46,7 @@ export const tours = [
     price: 32,
     maxParticipants: 15,
     requiredGuideCount: 1,
+    poiCoordinates: "45.9000, 15.9500",
     additionalServices: ["Hiking pole rental", "Packed lunch"],
     scheduledTimeSlots: [
       "2026-11-08T09:00:00+01:00",

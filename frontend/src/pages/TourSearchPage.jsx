@@ -5,22 +5,11 @@ function TourSearchPage({ navigate, tours = [] }) {
 
   return (
     <div className="page-container">
-      {/* Header */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.75rem', color: '#111827' }}>
-          Discover Guided Tours &amp; Excursions
-        </h2>
-        <p style={{ margin: 0, color: '#4b5563', fontSize: '0.95rem' }}>
-          Browse available outdoor activities, city walking tours, and cultural experiences.
-        </p>
-      </div>
-
-      {/* Search Bar (Top): Single row containing text input, Filter button, and Search button */}
       <div className="search-bar-row">
         <input
           type="text"
           className="search-input-field"
-          placeholder="Search by tour name, destination, or landmark..."
+          placeholder="Search by tour name or landmark..."
           defaultValue=""
           aria-label="Search tours"
         />
@@ -42,22 +31,15 @@ function TourSearchPage({ navigate, tours = [] }) {
         </button>
       </div>
 
-      {/* Filters: Expanded panel containing dropdowns/inputs for:
-          Time slot, Location, Activity Category, Duration, Price, Number of participants.
-          Visually complete but functionally non-usable for this mock. */}
       {showFilters && (
         <div className="filter-panel">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ margin: 0, fontSize: '1rem', color: '#1f2937' }}>
               Filter Tours
             </h3>
-            <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-              (Mock Filter Panel)
-            </span>
           </div>
 
           <div className="filter-grid">
-            {/* 1. Time slot */}
             <div>
               <label className="form-label" htmlFor="filter-timeslot">Time Slot</label>
               <select id="filter-timeslot" className="form-select" defaultValue="">
@@ -69,7 +51,6 @@ function TourSearchPage({ navigate, tours = [] }) {
               </select>
             </div>
 
-            {/* 2. Location */}
             <div>
               <label className="form-label" htmlFor="filter-location">Location</label>
               <select id="filter-location" className="form-select" defaultValue="">
@@ -85,7 +66,6 @@ function TourSearchPage({ navigate, tours = [] }) {
               </select>
             </div>
 
-            {/* 3. Activity Category */}
             <div>
               <label className="form-label" htmlFor="filter-category">Activity Category</label>
               <select id="filter-category" className="form-select" defaultValue="">
@@ -99,7 +79,6 @@ function TourSearchPage({ navigate, tours = [] }) {
               </select>
             </div>
 
-            {/* 4. Duration */}
             <div>
               <label className="form-label" htmlFor="filter-duration">Duration</label>
               <select id="filter-duration" className="form-select" defaultValue="">
@@ -110,7 +89,6 @@ function TourSearchPage({ navigate, tours = [] }) {
               </select>
             </div>
 
-            {/* 5. Price */}
             <div>
               <label className="form-label" htmlFor="filter-price">Max Price (€)</label>
               <input
@@ -123,7 +101,6 @@ function TourSearchPage({ navigate, tours = [] }) {
               />
             </div>
 
-            {/* 6. Number of participants */}
             <div>
               <label className="form-label" htmlFor="filter-participants">Participants</label>
               <input
@@ -139,14 +116,12 @@ function TourSearchPage({ navigate, tours = [] }) {
         </div>
       )}
 
-      {/* Results Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '1rem 0' }}>
         <p style={{ margin: 0, fontSize: '0.9rem', color: '#4b5563' }}>
           Showing <strong>{tours.length}</strong> available tours
         </p>
       </div>
 
-      {/* Tour List: Display cards with essential info */}
       <div className="tours-grid">
         {tours.map((tour) => (
           <div
@@ -172,7 +147,6 @@ function TourSearchPage({ navigate, tours = [] }) {
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', fontSize: '0.8rem', color: '#4b5563', marginBottom: '1rem' }}>
                 <span>⏱ <strong>{tour.duration}</strong></span>
-                <span>👥 Max <strong>{tour.maxParticipants}</strong></span>
                 <span>🚩 {tour.departurePoint.split(',')[0]}</span>
               </div>
             </div>
@@ -198,7 +172,6 @@ function TourSearchPage({ navigate, tours = [] }) {
         ))}
       </div>
 
-      {/* Pagination: Static "Show more" button */}
       <div style={{ textAlign: 'center', marginTop: '2.5rem', marginBottom: '2rem' }}>
         <button
           type="button"

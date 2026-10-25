@@ -36,7 +36,8 @@ function formatSlotDate(isoString) {
   }
 }
 
-function TourDetailsPage({ navigate, tourId, tours = [] }) {
+function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistered' }) {
+  const isUnregistered = userRole === 'unregistered';
   const slotSelectId = useId();
   const participantsInputId = useId();
 
@@ -47,7 +48,6 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
   );
   const [participants, setParticipants] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState([]);
-  const [bookingConfirmed, setBookingConfirmed] = useState(false);
 
   if (!selectedTour) {
     return (
@@ -61,8 +61,9 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
     );
   }
 
+  // if service already selected -> remove it, else -> add it to list
   const handleToggleAddon = (service) => {
-    setSelectedAddons((prev) =>
+    setSelectedAddons((prev) => // prev = selectedAddons
       prev.includes(service) ? prev.filter((s) => s !== service) : [...prev, service]
     );
   };
@@ -78,7 +79,6 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
     }
   };
 
-  // Price calculations
   const baseTotal = selectedTour.price * participants;
   const addonsPerPerson = selectedAddons.reduce(
     (sum, service) => sum + (ADD_ON_PRICES[service] || 10),
@@ -89,12 +89,10 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
 
   const handleBookReservation = (e) => {
     e.preventDefault();
-    setBookingConfirmed(true);
   };
 
   return (
     <div className="page-container">
-      {/* Breadcrumb / Back button */}
       <div style={{ marginBottom: '1.25rem' }}>
         <button
           type="button"
@@ -106,41 +104,7 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
         </button>
       </div>
 
-      {bookingConfirmed && (
-        <div
-          style={{
-            backgroundColor: '#ecfdf5',
-            border: '1px solid #6ee7b7',
-            color: '#065f46',
-            padding: '1rem 1.25rem',
-            borderRadius: '6px',
-            marginBottom: '1.5rem',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <strong>Reservation Confirmed!</strong>
-              <div style={{ fontSize: '0.9rem', marginTop: '0.25rem' }}>
-                Booked for <strong>{participants}</strong> participant(s) on{' '}
-                <strong>{formatSlotDate(selectedSlot || selectedTour.scheduledTimeSlots[0])}</strong>.
-                Total charged: <strong>€{grandTotal}</strong> (Static Mock)
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setBookingConfirmed(false)}
-              style={{ fontSize: '0.8rem', padding: '0.3rem 0.6rem' }}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 2-Column Desktop Layout / Stacked Mobile Layout */}
       <div className="tour-details-layout">
-        {/* Left Side: Tour Details */}
         <section className="details-column" aria-labelledby="tour-title">
           <span className="tour-card-badge" style={{ marginBottom: '0.75rem' }}>
             {selectedTour.activityCategory}
@@ -198,14 +162,12 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
           </div>
         </section>
 
-        {/* Right Side: Booking Form */}
         <aside className="booking-column" aria-label="Tour Reservation Form">
           <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.35rem', color: '#111827' }}>
             Book Your Spot
           </h3>
 
           <form onSubmit={handleBookReservation}>
-            {/* 1. Dropdown for scheduled slot selection */}
             <div style={{ marginBottom: '1.25rem' }}>
               <label htmlFor={slotSelectId} className="form-label">
                 Select Scheduled Time Slot
@@ -215,6 +177,7 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
                 className="form-select"
                 value={selectedSlot}
                 onChange={(e) => setSelectedSlot(e.target.value)}
+                disabled={isUnregistered}
               >
                 {selectedTour.scheduledTimeSlots.map((slot) => (
                   <option key={slot} value={slot}>
@@ -224,7 +187,6 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
               </select>
             </div>
 
-            {/* 2. Number input for participant count */}
             <div style={{ marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                 <label htmlFor={participantsInputId} className="form-label" style={{ margin: 0 }}>
@@ -242,10 +204,10 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
                 max={selectedTour.maxParticipants}
                 value={participants}
                 onChange={handleParticipantsChange}
+                disabled={isUnregistered}
               />
             </div>
 
-            {/* 3. Selectable checkboxes for add-on services with prices */}
             <div style={{ marginBottom: '1.25rem' }}>
               <label className="form-label">Optional Add-on Services</label>
               {selectedTour.additionalServices && selectedTour.additionalServices.length > 0 ? (
@@ -257,13 +219,14 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
                       <label
                         key={service}
                         className="service-checkbox-item"
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: isUnregistered ? 'not-allowed' : 'pointer' }}
                       >
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
                           <input
                             type="checkbox"
                             checked={isChecked}
                             onChange={() => handleToggleAddon(service)}
+                            disabled={isUnregistered}
                           />
                           <span>{service}</span>
                         </span>
@@ -281,7 +244,6 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
               )}
             </div>
 
-            {/* 4. Total price calculation display */}
             <div className="price-summary-box">
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#4b5563', marginBottom: '0.35rem' }}>
                 <span>Base ({participants} × €{selectedTour.price}):</span>
@@ -304,14 +266,46 @@ function TourDetailsPage({ navigate, tourId, tours = [] }) {
               </div>
             </div>
 
-            {/* 5. Prominent "Book / Confirm Reservation" button */}
-            <button
-              type="submit"
-              className="btn btn-primary btn-block"
-              style={{ padding: '0.8rem 1rem', fontSize: '1.05rem' }}
-            >
-              Book / Confirm Reservation
-            </button>
+            {isUnregistered ? (
+              <div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-block"
+                  disabled
+                  style={{ padding: '0.8rem 1rem', fontSize: '1.05rem', cursor: 'not-allowed', opacity: 0.7 }}
+                >
+                  Book / Confirm Reservation (Login Required)
+                </button>
+                <p style={{ margin: '0.6rem 0 0 0', fontSize: '0.85rem', color: '#6b7280', textAlign: 'center' }}>
+                  Please{' '}
+                  <button
+                    type="button"
+                    onClick={() => navigate('/login')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#0066cc',
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                      padding: 0,
+                      font: 'inherit',
+                      fontWeight: 600,
+                    }}
+                  >
+                    log in
+                  </button>{' '}
+                  to reserve this tour.
+                </p>
+              </div>
+            ) : (
+              <button
+                type="submit"
+                className="btn btn-primary btn-block"
+                style={{ padding: '0.8rem 1rem', fontSize: '1.05rem' }}
+              >
+                Book / Confirm Reservation
+              </button>
+            )}
           </form>
         </aside>
       </div>

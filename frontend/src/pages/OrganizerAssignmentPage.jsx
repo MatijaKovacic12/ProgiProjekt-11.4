@@ -1,6 +1,35 @@
 import { useState } from 'react';
 import { initialGuides, initialScheduledExcursions } from '../mock-backoffice-data.js';
 
+function formatShortDateTime(dtStr) {
+  if (!dtStr) return '';
+  if (/^[A-Za-z]{3}\s+\d+,\s+\d{2}:\d{2}$/.test(dtStr.trim())) {
+    return dtStr.trim();
+  }
+  try {
+    const normalized = dtStr.includes('T') ? dtStr : dtStr.replace(' ', 'T');
+    const d = new Date(normalized);
+    if (isNaN(d.getTime())) return dtStr;
+    const month = d.toLocaleString('en-US', { month: 'short' });
+    const day = d.getDate();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${month} ${day}, ${hours}:${minutes}`;
+  } catch {
+    return dtStr;
+  }
+}
+
+function formatActivityItem(act) {
+  const match = act.match(/^(.*?)\s*\((.*?)\)$/);
+  if (match) {
+    const title = match[1];
+    const rawDate = match[2];
+    return `${title} (${formatShortDateTime(rawDate)})`;
+  }
+  return act;
+}
+
 function OrganizerAssignmentPage() {
   const [excursions, setExcursions] = useState(initialScheduledExcursions);
   const [guides, setGuides] = useState(initialGuides);
@@ -36,7 +65,6 @@ function OrganizerAssignmentPage() {
       return;
     }
 
-    // 1. Update Excursion Assigned Guides
     setExcursions((prev) =>
       prev.map((e) =>
         e.id === excursionId
@@ -45,7 +73,7 @@ function OrganizerAssignmentPage() {
       )
     );
 
-    // 2. Update Guide's Assigned Activities & Status in Tracker
+    const formattedTime = formatShortDateTime(excursion.dateTime);
     setGuides((prev) =>
       prev.map((g) =>
         g.name === guideName
@@ -54,16 +82,13 @@ function OrganizerAssignmentPage() {
               status: 'Assigned',
               assignedActivities: [
                 ...g.assignedActivities,
-                `${excursion.tourTitle} (${excursion.dateTime})`,
+                `${excursion.tourTitle} (${formattedTime})`,
               ],
             }
           : g
       )
     );
 
-    showNotice(`Assigned guide ${guideName} to "${excursion.tourTitle}".`);
-
-    // Reset selector
     setSelectedGuidesPerExcursion((prev) => ({
       ...prev,
       [excursionId]: '',
@@ -74,7 +99,6 @@ function OrganizerAssignmentPage() {
     const excursion = excursions.find((e) => e.id === excursionId);
     if (!excursion) return;
 
-    // 1. Remove guide from excursion
     setExcursions((prev) =>
       prev.map((e) =>
         e.id === excursionId
@@ -86,7 +110,6 @@ function OrganizerAssignmentPage() {
       )
     );
 
-    // 2. Remove activity from guide & update status if no activities remain
     setGuides((prev) =>
       prev.map((g) => {
         if (g.name === guideName) {
@@ -108,17 +131,12 @@ function OrganizerAssignmentPage() {
 
   return (
     <div className="page-container">
-      {/* Screen Title & Description */}
       <div style={{ marginBottom: '1.75rem' }}>
         <h2 style={{ margin: '0 0 0.4rem 0', fontSize: '1.75rem', color: '#111827' }}>
-          Organizer Assignment
+          Organizer Dashboard
         </h2>
-        <p style={{ margin: 0, color: '#4b5563', fontSize: '0.95rem' }}>
-          Allocate qualified tour guides to scheduled departures and monitor guide availability in real time.
-        </p>
       </div>
 
-      {/* Notification Toast */}
       {notification && (
         <div className="toast-banner" role="status">
           <span>✓ {notification}</span>
@@ -132,16 +150,12 @@ function OrganizerAssignmentPage() {
         </div>
       )}
 
-      {/* Guide Assignment */}
       <section style={{ marginBottom: '2.5rem' }}>
         <div className="section-header-row">
           <div>
             <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem', color: '#1f2937' }}>
               Guide Assignment
             </h3>
-            <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
-              Manage guide requirements and roster assignments for scheduled tour departures.
-            </p>
           </div>
         </div>
 
@@ -224,7 +238,7 @@ function OrganizerAssignmentPage() {
                           <option value="">Select guide...</option>
                           {guides.map((g) => (
                             <option key={g.id} value={g.name}>
-                              {g.name} ({g.status})
+                              {g.name}
                             </option>
                           ))}
                         </select>
@@ -246,16 +260,12 @@ function OrganizerAssignmentPage() {
         </div>
       </section>
 
-      {/* Resource Availability Tracker */}
       <section style={{ marginBottom: '2.5rem' }}>
         <div className="section-header-row">
           <div>
             <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem', color: '#1f2937' }}>
-              Resource Availability Tracker
+              Resource Availability
             </h3>
-            <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>
-              Real-time directory of tour guides, current operational assignments, and availability statuses.
-            </p>
           </div>
         </div>
 
@@ -284,13 +294,6 @@ function OrganizerAssignmentPage() {
                     {guide.phone}
                   </span>
                 </div>
-                <span
-                  className={`badge ${
-                    guide.status === 'Available' ? 'badge-success' : 'badge-info'
-                  }`}
-                >
-                  {guide.status}
-                </span>
               </div>
 
               <div>
@@ -306,7 +309,7 @@ function OrganizerAssignmentPage() {
                 >
                   Currently Assigned Activities:
                 </span>
-                {guide.assignedActivities.length > 0 ? (
+                {guide.assignedActivities.length > 0 && (
                   <ul
                     style={{
                       margin: 0,
@@ -317,21 +320,10 @@ function OrganizerAssignmentPage() {
                   >
                     {guide.assignedActivities.map((act, idx) => (
                       <li key={idx} style={{ marginBottom: '0.2rem' }}>
-                        {act}
+                        {formatActivityItem(act)}
                       </li>
                     ))}
                   </ul>
-                ) : (
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: '0.85rem',
-                      color: '#16a34a',
-                      fontStyle: 'italic',
-                    }}
-                  >
-                    No excursions currently assigned (Ready for assignment)
-                  </p>
                 )}
               </div>
             </div>

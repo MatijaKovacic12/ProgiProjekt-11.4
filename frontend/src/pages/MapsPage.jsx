@@ -1,7 +1,6 @@
 function MapsPage() {
   return (
     <div className="page-container">
-      {/* Desktop View (>768px): Warning card */}
       <div className="maps-desktop-notice">
         <div
           className="card"
@@ -33,7 +32,6 @@ function MapsPage() {
         </div>
       </div>
 
-      {/* Mobile View (<=768px): Single simple placeholder box with map icon and "Coming soon" */}
       <div className="maps-mobile-view">
         <div className="maps-coming-soon-box">
           <svg
