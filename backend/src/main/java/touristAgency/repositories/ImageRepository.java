@@ -5,6 +5,6 @@ import touristAgency.models.Image;
 
 import java.util.Optional;
 
-public interface IdentityRepository extends JpaRepository<Image,Long> {
+public interface ImageRepository extends JpaRepository<Image,Long> {
     Optional<Image>  findByPath(String path);
 }
