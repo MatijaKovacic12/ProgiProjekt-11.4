@@ -9,31 +9,67 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class TripSessionRepositoryTest extends RepositoryTestBase{
+public class TripSessionRepositoryTest extends RepositoryTestBase {
+
     @Test
     void schedule_setsEndTimeFromTripDuration() {
         assertEquals(upcoming.getStartTime().plusMinutes(240), upcoming.getEndTime());
     }
 
     @Test
-    void findByTripIdOrderByStartTimeAsc_returnsSessionsChronologically() {
-        List<Long> ids = tripSessions.findByTripIdOrderByStartTimeAsc(trip.getId())
+    void save_setsActiveByDefault() {
+        assertTrue(upcoming.isActive());
+    }
+
+    @Test
+    void findByTripIdAndActiveTrue_returnsSessionsChronologically() {
+        List<Long> ids = tripSessions.findByTripIdAndActiveTrueOrderByStartTimeAsc(trip.getId())
                 .stream().map(TripSession::getId).toList();
         assertEquals(List.of(past.getId(), inProgress.getId(), upcoming.getId()), ids);
     }
 
     @Test
-    void existsByTripIdAndStartTime() {
-        assertTrue(tripSessions.existsByTripIdAndStartTime(trip.getId(), upcoming.getStartTime()));
-        assertFalse(tripSessions.existsByTripIdAndStartTime(trip.getId(), upcoming.getStartTime().plusMinutes(1)));
+    void findByTripIdAndActiveTrue_excludesInactiveSessions() {
+        past.setActive(false);
+        tripSessions.saveAndFlush(past);
+
+        List<Long> ids = tripSessions.findByTripIdAndActiveTrueOrderByStartTimeAsc(trip.getId())
+                .stream().map(TripSession::getId).toList();
+        assertEquals(List.of(inProgress.getId(), upcoming.getId()), ids);
     }
 
     @Test
-    void save_rejectsSecondSessionAtSameStartTime() {
+    void existsByTripIdAndStartTimeAndActiveTrue() {
+        assertTrue(tripSessions.existsByTripIdAndStartTimeAndActiveTrue(trip.getId(), upcoming.getStartTime()));
+        assertFalse(tripSessions.existsByTripIdAndStartTimeAndActiveTrue(trip.getId(), upcoming.getStartTime().plusMinutes(1)));
+    }
+
+    @Test
+    void existsByTripIdAndStartTimeAndActiveTrue_ignoresInactiveSession() {
+        upcoming.setActive(false);
+        tripSessions.saveAndFlush(upcoming);
+
+        assertFalse(tripSessions.existsByTripIdAndStartTimeAndActiveTrue(trip.getId(), upcoming.getStartTime()));
+    }
+
+    @Test
+    void save_rejectsSecondActiveSessionAtSameStartTime() {
         TripSession duplicate = new TripSession();
         duplicate.setTrip(trip);
         duplicate.schedule(upcoming.getStartTime());
         assertThrows(DataIntegrityViolationException.class, () -> tripSessions.saveAndFlush(duplicate));
+    }
+
+    @Test
+    void save_allowsNewSessionAtSameStartTimeAfterDeactivation() {
+        upcoming.setActive(false);
+        tripSessions.saveAndFlush(upcoming);
+
+        TripSession replacement = new TripSession();
+        replacement.setTrip(trip);
+        replacement.schedule(upcoming.getStartTime());
+
+        assertDoesNotThrow(() -> tripSessions.saveAndFlush(replacement));
     }
 
     @Test
@@ -59,5 +95,21 @@ public class TripSessionRepositoryTest extends RepositoryTestBase{
         assertEquals(trip.getId(), a.getTripId());
         assertNotNull(a.getStartTime());
         assertEquals(3L, a.getAvailableSeats());
+    }
+
+    @Test
+    void findUpcomingWithAvailability_excludesInactiveSession() {
+        upcoming.setActive(false);
+        tripSessions.saveAndFlush(upcoming);
+
+        assertTrue(tripSessions.findUpcomingWithAvailability(List.of(trip.getId()), now).isEmpty());
+    }
+
+    @Test
+    void findUpcomingWithAvailability_excludesSessionsOfInactiveTrip() {
+        trip.setActive(false);
+        trips.saveAndFlush(trip);
+
+        assertTrue(tripSessions.findUpcomingWithAvailability(List.of(trip.getId()), now).isEmpty());
     }
 }

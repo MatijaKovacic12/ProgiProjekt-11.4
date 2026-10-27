@@ -20,6 +20,9 @@ public class Location extends  BaseEntity {
     @Column(name = "opis", nullable = false, length = 1000)
     private String description;
 
+    @Column(name = "znacaj", length = 1000)
+    private String significance;
+
     @Column(name = "latitude", nullable = false, precision = 9, scale = 6)
     private BigDecimal latitude;
 

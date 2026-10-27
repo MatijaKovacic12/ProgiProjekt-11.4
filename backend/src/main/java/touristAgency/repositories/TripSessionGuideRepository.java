@@ -56,4 +56,9 @@ public interface TripSessionGuideRepository extends JpaRepository<TripSessionGui
               and sg.id.sessionId in (select s.id from TripSession s where s.startTime > :now)
             """)
     int deleteUpcomingAssignments(@Param("guideId") Long guideId, @Param("now") OffsetDateTime now);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from TripSessionGuide sg where sg.id.sessionId = :sessionId")
+    int deleteBySessionId(@Param("sessionId") Long sessionId);
+
 }

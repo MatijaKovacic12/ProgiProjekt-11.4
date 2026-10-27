@@ -16,7 +16,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ReservationRepositoryTest extends  RepositoryTestBase {
+public class ReservationRepositoryTest extends RepositoryTestBase {
     private static final PageRequest PAGE = PageRequest.of(0, 20);
 
     private OffsetDateTime from() { return now.minusDays(10); }
@@ -60,7 +60,6 @@ public class ReservationRepositoryTest extends  RepositoryTestBase {
         assertEquals("Prijevoz", r.getReservationAdditionalServices().get(0).getAdditionalService().getName());
     }
 
-
     @Test
     void searchAdmin_searchesNameAndEmailCaseInsensitive() {
         assertEquals(4, reservations.searchAdmin(null, null, null, "ANA", PAGE).getTotalElements());
@@ -68,7 +67,6 @@ public class ReservationRepositoryTest extends  RepositoryTestBase {
         assertEquals(4, reservations.searchAdmin(null, null, null, "@test.hr", PAGE).getTotalElements());
         assertEquals(0, reservations.searchAdmin(null, null, null, "nepostoji", PAGE).getTotalElements());
     }
-
 
     @Test
     void findActiveInProgress_returnsOnlyConfirmedReservationOfRunningSession() {
@@ -86,6 +84,26 @@ public class ReservationRepositoryTest extends  RepositoryTestBase {
         assertEquals(ReservationStatus.CONFIRMED, reservations.findById(inProgressRes.getId()).orElseThrow().getStatus());
         assertEquals(ReservationStatus.CONFIRMED, reservations.findById(upcomingRes.getId()).orElseThrow().getStatus());
         assertEquals(ReservationStatus.CANCELLED, reservations.findById(cancelledRes.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void cancelAllForSession_cancelsOnlyConfirmedReservationsOfThatSession() {
+        assertEquals(1, reservations.cancelAllForSession(upcoming.getId(), now));
+
+        assertEquals(ReservationStatus.CANCELLED, reservations.findById(upcomingRes.getId()).orElseThrow().getStatus());
+        assertEquals(ReservationStatus.CANCELLED, reservations.findById(cancelledRes.getId()).orElseThrow().getStatus());
+        assertEquals(ReservationStatus.CONFIRMED, reservations.findById(inProgressRes.getId()).orElseThrow().getStatus());
+        assertEquals(ReservationStatus.CONFIRMED, reservations.findById(pastRes.getId()).orElseThrow().getStatus());
+        assertEquals(0, reservations.sumBookedSeats(upcoming.getId()));
+    }
+
+    @Test
+    void cancelAllForSession_setsUpdatedAt() {
+        OffsetDateTime cancelTime = now.plusMinutes(5);
+        reservations.cancelAllForSession(upcoming.getId(), cancelTime);
+
+        Reservation r = reservations.findById(upcomingRes.getId()).orElseThrow();
+        assertEquals(cancelTime.toInstant(), r.getUpdatedAt().toInstant());
     }
 
     @Test
@@ -128,6 +146,19 @@ public class ReservationRepositoryTest extends  RepositoryTestBase {
         assertEquals(4L, o.getSessionCount());
         assertEquals(40L, o.getCapacity());
         assertEquals(30.0, o.getOccupancyPercent().doubleValue(), 0.001);
+    }
+
+    @Test
+    void getTripOccupancy_excludesInactiveSessions() {
+        inProgress.setActive(false);
+        tripSessions.saveAndFlush(inProgress);
+
+        TripOccupancy o = reservations.getTripOccupancy(from(), to()).get(0);
+        // ostaju upcoming (7) i past (4)
+        assertEquals(2L, o.getSessionCount());
+        assertEquals(20L, o.getCapacity());
+        assertEquals(11L, o.getBookedPeople());
+        assertEquals(55.0, o.getOccupancyPercent().doubleValue(), 0.001);
     }
 
     @Test

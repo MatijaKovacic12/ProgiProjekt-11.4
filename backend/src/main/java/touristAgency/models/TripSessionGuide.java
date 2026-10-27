@@ -15,7 +15,7 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 public class TripSessionGuide {
     @EmbeddedId
-    private TripSessionGuideId id;
+    private TripSessionGuideId id = new TripSessionGuideId();
 
     @MapsId("sessionId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -32,7 +32,6 @@ public class TripSessionGuide {
     private OffsetDateTime createdAt;
 
     public TripSessionGuide(TripSession tripSession, AppUser guide) {
-        this.id = new TripSessionGuideId(tripSession.getId(), guide.getId());
         this.tripSession = tripSession;
         this.guide = guide;
     }

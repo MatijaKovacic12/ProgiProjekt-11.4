@@ -24,6 +24,9 @@ public class TripSession extends  BaseEntity {
     @Column(name = "termin_kraj", nullable = false)
     private OffsetDateTime endTime;
 
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true;
+
     /** Postavi početak i izračunaj kraj iz trajanja izleta. */
     public void schedule(OffsetDateTime start) {
         this.startTime = start;
