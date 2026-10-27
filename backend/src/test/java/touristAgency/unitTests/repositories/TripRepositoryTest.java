@@ -1,20 +1,34 @@
 package touristAgency.unitTests.repositories;
 
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import touristAgency.models.Trip;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class TripRepositoryTest extends  RepositoryTestBase{
+public class TripRepositoryTest extends RepositoryTestBase {
+
+    @Autowired
+    private EntityManager em;
+
     private List<Trip> searchAll(int requiredSeats) {
         return trips.search(now, null, null, null, null, null, null, null, null, requiredSeats);
     }
 
+    /** Isprazni persistence context da se izlet stvarno učita iz baze, a ne iz memorije. */
+    private void flushAndClear() {
+        em.flush();
+        em.clear();
+    }
+
     @Test
     void findWithDetailsById_loadsCategoryServicesAndLocations() {   // FR-3
+        flushAndClear();
         Trip loaded = trips.findWithDetailsById(trip.getId()).orElseThrow();
 
         assertEquals("Planinarenje", loaded.getCategory().getName());
@@ -23,10 +37,30 @@ public class TripRepositoryTest extends  RepositoryTestBase{
     }
 
     @Test
-    void findAllByOrderByNameAsc() {
-        assertEquals(List.of("Plitvice"), trips.findAllByOrderByNameAsc().stream().map(Trip::getName).toList());
+    void findWithDetailsById_doesNotDuplicateLocationsWithMultipleServices() {
+        trip.getAdditionalServices().add(gear);
+        trips.saveAndFlush(trip);
+        flushAndClear();
+
+        Trip loaded = trips.findWithDetailsById(trip.getId()).orElseThrow();
+
+        assertEquals(2, loaded.getAdditionalServices().size());
+        assertEquals(4, loaded.getLocations().size());
     }
 
+    @Test
+    void findByActiveTrueOrderByNameAsc_returnsActiveTrips() {
+        assertEquals(List.of("Plitvice"),
+                trips.findByActiveTrueOrderByNameAsc().stream().map(Trip::getName).toList());
+    }
+
+    @Test
+    void findByActiveTrueOrderByNameAsc_excludesInactiveTrips() {
+        trip.setActive(false);
+        trips.saveAndFlush(trip);
+
+        assertTrue(trips.findByActiveTrueOrderByNameAsc().isEmpty());
+    }
 
     @Test
     void search_withoutFilters_returnsTripWithUpcomingSession() {
@@ -84,4 +118,21 @@ public class TripRepositoryTest extends  RepositoryTestBase{
         List<String> names = searchAll(1).stream().map(Trip::getName).toList();
         assertEquals(List.of("Plitvice"), names);
     }
+
+    @Test
+    void search_excludesInactiveTrip() {
+        trip.setActive(false);
+        trips.saveAndFlush(trip);
+
+        assertTrue(searchAll(1).isEmpty());
+    }
+
+    @Test
+    void search_excludesTripWhoseOnlyUpcomingSessionIsInactive() {
+        upcoming.setActive(false);
+        tripSessions.saveAndFlush(upcoming);
+
+        assertTrue(searchAll(1).isEmpty());
+    }
+
 }

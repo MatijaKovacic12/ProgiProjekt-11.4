@@ -7,7 +7,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class TripSessionGuideRepositoryTest extends RepositoryTestBase{
+public class TripSessionGuideRepositoryTest extends RepositoryTestBase {
     @Test
     void findByTripSessionId_returnsAssignedGuides() {
         List<TripSessionGuide> assigned = tripSessionGuides.findByTripSessionId(upcoming.getId());
@@ -68,5 +68,25 @@ public class TripSessionGuideRepositoryTest extends RepositoryTestBase{
         assertEquals(1, tripSessionGuides.deleteUpcomingAssignments(guide1.getId(), now));
         assertEquals(0, tripSessionGuides.countByTripSessionId(upcoming.getId()));
         assertEquals(1, tripSessionGuides.countByTripSessionId(past.getId()));
+    }
+
+    @Test
+    void deleteBySessionId_removesAllGuidesOfThatSessionOnly() {
+        tripSessionGuides.save(new TripSessionGuide(upcoming, guide2));
+        tripSessionGuides.save(new TripSessionGuide(past, guide1));
+        tripSessionGuides.flush();
+
+        assertEquals(2, tripSessionGuides.deleteBySessionId(upcoming.getId()));
+        assertEquals(0, tripSessionGuides.countByTripSessionId(upcoming.getId()));
+        assertEquals(1, tripSessionGuides.countByTripSessionId(past.getId()));
+    }
+
+    @Test
+    void deleteBySessionId_freesGuideForOverlappingSession() {
+        tripSessionGuides.deleteBySessionId(upcoming.getId());
+
+        assertFalse(tripSessionGuides.hasOverlap(guide1.getId(),
+                upcoming.getStartTime(), upcoming.getEndTime()));
+        assertEquals(2, users.findAvailableGuides(upcoming.getStartTime(), upcoming.getEndTime()).size());
     }
 }

@@ -17,7 +17,7 @@ public interface TripRepository extends JpaRepository<Trip,Long> {
     Optional<Trip> findWithDetailsById(Long id);
 
     @EntityGraph(attributePaths = "category")
-    List<Trip> findAllByOrderByNameAsc();
+    List<Trip> findByActiveTrueOrderByNameAsc();
 
     default List<Trip> search(OffsetDateTime now,
                               OffsetDateTime dateFrom,
@@ -40,7 +40,8 @@ public interface TripRepository extends JpaRepository<Trip,Long> {
     @EntityGraph(attributePaths = "category")
     @Query("""
             select t from Trip t
-            where (:categoryId  is null or t.category.id     =  :categoryId)
+            where       t.active=true
+                       and  (:categoryId  is null or t.category.id     =  :categoryId)
               and (:minDuration is null or t.durationMinutes >= :minDuration)
               and (:maxDuration is null or t.durationMinutes <= :maxDuration)
               and (:minPrice    is null or t.price           >= :minPrice)
@@ -53,6 +54,7 @@ public interface TripRepository extends JpaRepository<Trip,Long> {
               and exists (
                       select s from TripSession s
                       where s.trip = t
+                        and s.active=true
                         and s.startTime >  :now
                         and s.startTime >= :dateFrom
                         and s.startTime <  :dateTo

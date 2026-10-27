@@ -93,6 +93,7 @@ public interface ReservationRepository extends JpaRepository<Reservation,Long> {
             left join Reservation r on r.tripSession = s
             where s.startTime >= :dateFrom
               and s.startTime <  :dateTo
+              and s.active=true
             group by t.id, t.name, t.maxParticipants
             order by occupancyPercent desc, t.name
             """)
@@ -114,4 +115,13 @@ public interface ReservationRepository extends JpaRepository<Reservation,Long> {
             """)
     List<TopItem> findTop5Categories(@Param("dateFrom") OffsetDateTime dateFrom,
                                      @Param("dateTo") OffsetDateTime dateTo);
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+        update Reservation r
+        set r.status = touristAgency.models.ReservationStatus.CANCELLED,
+            r.updatedAt = :now
+        where r.tripSession.id = :sessionId
+          and r.status = touristAgency.models.ReservationStatus.CONFIRMED
+        """)
+    int cancelAllForSession(@Param("sessionId") Long sessionId, @Param("now") OffsetDateTime now);
 }

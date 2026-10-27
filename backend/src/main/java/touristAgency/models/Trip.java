@@ -41,6 +41,8 @@ public class Trip extends  BaseEntity {
     @Column(name = "broj_vodica", nullable = false)
     private Integer requiredGuides = 1;
 
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true;
 
     @ManyToMany
     @JoinTable(
@@ -50,7 +52,7 @@ public class Trip extends  BaseEntity {
     private Set<AdditionalService> additionalServices = new HashSet<>();
 
     @OneToMany(mappedBy = "trip", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Location> locations = new ArrayList<>();
+    private Set<Location> locations = new HashSet<>();
 
     public void addLocation(Location location) {
         location.setTrip(this);
