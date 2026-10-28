@@ -1,3 +1,5 @@
+import { loginWithGoogle } from '../api/authClient';
+
 function LoginPage({ navigate, onSelectRole }) {
   const handleRoleClick = (role, path) => {
     if (onSelectRole) {
@@ -22,8 +24,8 @@ function LoginPage({ navigate, onSelectRole }) {
           <button
             type="button"
             className="oauth-button"
-            disabled
-            style={{ width: '100%', cursor: 'default' }}
+            onClick={loginWithGoogle}
+            style={{ width: '100%', cursor: 'pointer' }}
           >
             <svg
               width="20"
@@ -38,7 +40,7 @@ function LoginPage({ navigate, onSelectRole }) {
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            <span>Log in with OAuth 2.0 / OpenID Connect</span>
+            <span>Log in with Google</span>
           </button>
         </div>
 
