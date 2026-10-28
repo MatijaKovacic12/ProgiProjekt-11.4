@@ -9,8 +9,9 @@ const ROLE_MAP = {
     MANAGER: 'manager',
 }
 
-export function loginWithGoogle(){
-    window.location.href = `${BACKEND_URL}/oauth2/authorization/google`
+// provider is 'google' or 'microsoft'
+export function loginWith(provider){
+    window.location.href = `${BACKEND_URL}/oauth2/authorization/${provider}`
 }
 
 export async function getCurrentUser(){

@@ -40,6 +40,54 @@ public class OAuth2LoginSuccessHandlerTest {
         assertEquals("http://localhost:5173/login?error=true", response.getRedirectedUrl());
     }
 
+    @Test
+    void onAuthenticationSuccess_microsoftLoginSplitsFullNameAndUsesXmsEdov() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        OidcIdToken idToken = OidcIdToken.withTokenValue("token")
+                .subject("ms-1")
+                .claim("email", "ana@fer.hr")
+                .claim("xms_edov", true)
+                .claim("name", "Ana Marija Horvat")
+                .build();
+
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(), response, login(idToken, "microsoft"));
+
+        verify(authService).loginOrRegister("microsoft", "ms-1", "ana@fer.hr", "Ana", "Marija Horvat", true);
+        assertEquals("http://localhost:5173/tours", response.getRedirectedUrl());
+    }
+
+    @Test
+    void onAuthenticationSuccess_microsoftLoginWithoutEmailUsesPreferredUsername() throws Exception {
+        OidcIdToken idToken = OidcIdToken.withTokenValue("token")
+                .subject("ms-1")
+                .claim("preferred_username", "ana@fer.hr")
+                .claim("name", "Ana")
+                .build();
+
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(), new MockHttpServletResponse(), login(idToken, "microsoft"));
+
+        verify(authService).loginOrRegister("microsoft", "ms-1", "ana@fer.hr", "Ana", null, false);
+    }
+
+    @Test
+    void onAuthenticationSuccess_redirectsToLoginWithErrorWhenNoEmail() throws Exception {
+        OidcIdToken idToken = OidcIdToken.withTokenValue("token")
+                .subject("ms-1")
+                .claim("name", "Ana Horvat")
+                .build();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        handler.onAuthenticationSuccess(new MockHttpServletRequest(), response, login(idToken, "microsoft"));
+
+        verifyNoInteractions(authService);
+        assertEquals("http://localhost:5173/login?error=true", response.getRedirectedUrl());
+    }
+
+    private OAuth2AuthenticationToken login(OidcIdToken idToken, String provider) {
+        OidcUser user = new DefaultOidcUser(List.of(), idToken);
+        return new OAuth2AuthenticationToken(user, List.of(), provider);
+    }
+
     private OAuth2AuthenticationToken googleLogin() {
         OidcIdToken idToken = OidcIdToken.withTokenValue("token")
                 .subject("sub-1")
@@ -48,7 +96,6 @@ public class OAuth2LoginSuccessHandlerTest {
                 .claim("given_name", "Ana")
                 .claim("family_name", "Horvat")
                 .build();
-        OidcUser user = new DefaultOidcUser(List.of(), idToken);
-        return new OAuth2AuthenticationToken(user, List.of(), "google");
+        return login(idToken, "google");
     }
 }

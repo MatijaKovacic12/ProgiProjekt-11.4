@@ -28,14 +28,33 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) authentication;
         OidcUser oidcUser = (OidcUser) token.getPrincipal();
 
+        // Microsoft sometimes doesn't send "email", then preferred_username is the email
+        String email = oidcUser.getEmail() != null ? oidcUser.getEmail() : oidcUser.getPreferredUsername();
+
+        // Microsoft sends only full name ("name"), Google sends given_name and family_name
+        String firstName = oidcUser.getGivenName();
+        String lastName = oidcUser.getFamilyName();
+        if (firstName == null && oidcUser.getFullName() != null) {
+            String[] parts = oidcUser.getFullName().trim().split(" ", 2);
+            firstName = parts[0];
+            lastName = parts.length > 1 ? parts[1] : null;
+        }
+
+        // Google sends email_verified, Microsoft sends xms_edov (if enabled in Azure token configuration)
+        boolean emailVerified = Boolean.TRUE.equals(oidcUser.getEmailVerified())
+                || Boolean.TRUE.equals(oidcUser.getClaimAsBoolean("xms_edov"));
+
         try {
+            if (email == null || !email.contains("@")) {
+                throw new IllegalStateException("Provider did not send an email");
+            }
             authService.loginOrRegister(
                     token.getAuthorizedClientRegistrationId(),
                     oidcUser.getSubject(),
-                    oidcUser.getEmail(),
-                    oidcUser.getGivenName(),
-                    oidcUser.getFamilyName(),
-                    Boolean.TRUE.equals(oidcUser.getEmailVerified()));
+                    email,
+                    firstName,
+                    lastName,
+                    emailVerified);
         } catch (IllegalStateException e) {
             request.getSession().invalidate();
             response.sendRedirect(frontendUrl + "/login?error=true");
