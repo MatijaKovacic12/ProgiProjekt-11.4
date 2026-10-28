@@ -1,0 +1,79 @@
+@startuml 3-1-izleti-system-UC
+title Dijagram obrazaca uporabe sustava za upravljanje izletima i turističkim aktivnostima
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+
+actor "Neprijavljeni korisnik" as A01
+actor "Prijavljeni korisnik" as A02
+actor "Administrator" as A03
+actor "Organizator" as A04
+actor "Vodič" as A05
+actor "Voditelj agencije" as A06
+actor "Vremenski okidač" as A09 <<Timer>>
+
+actor "Pružatelj identiteta" as A07 <<sustav>>
+actor "Usluga e-pošte" as A08 <<sustav>>
+actor "Pružatelj karata" as A10 <<sustav>>
+
+rectangle "Sustav za upravljanje izletima" {
+  usecase "UC-01 Pretraživanje izleta" as UC01
+  usecase "UC-02 Prijava u sustav" as UC02
+  usecase "UC-03 Rezervacija termina izleta" as UC03
+  usecase "UC-04 Pregled vlastitih rezervacija" as UC04
+  usecase "UC-05 Korištenje digitalnog vodiča\ntijekom izleta" as UC05
+
+  usecase "UC-06 Objava novog izleta" as UC06
+  usecase "UC-07 Izmjena izleta" as UC07
+  usecase "UC-08 Definiranje termina izleta" as UC08
+  usecase "UC-09 Pregled rezervacija" as UC09
+  usecase "UC-10 Otkazivanje rezervacije" as UC10
+  usecase "UC-11 Otkazivanje termina" as UC11
+  usecase "UC-12 Otkazivanje izleta" as UC12
+  usecase "UC-13 Obavještavanje\no otkazivanju" as UC13
+
+  usecase "UC-14 Raspoređivanje vodiča na termin" as UC14
+  usecase "UC-15 Pregled rasporeda vodiča" as UC15
+  usecase "UC-16 Pregled dodijeljenih termina" as UC16
+
+  usecase "UC-17 Pregled statistike poslovanja\n--\ntočke proširenja\nIzvoz" as UC17
+  usecase "UC-18 Izvoz statistike u CSV" as UC18
+  usecase "UC-19 Dodjela uloge zaposleniku" as UC19
+
+  usecase "UC-20 Zaključivanje\nzavršenih termina" as UC20
+}
+
+A01 -- UC01
+A01 -- UC02
+A02 -- UC01
+A02 -- UC03
+A02 -- UC04
+A02 -- UC05
+
+A03 -- UC06
+A03 -- UC07
+A03 -- UC08
+A03 -- UC09
+A03 -- UC10
+A03 -- UC11
+A03 -- UC12
+
+A04 -- UC14
+A04 -- UC15
+A05 -- UC16
+
+A06 -- UC17
+A06 -- UC19
+
+A09 -- UC20
+
+UC10 ..> UC13 : <<include>>
+UC11 ..> UC13 : <<include>>
+UC12 ..> UC13 : <<include>>
+UC17 <.. UC18 : <<extend>>\n[Izvoz: voditelj\nzatraži izvoz]
+
+UC02 ---- A07
+UC05 ---- A10
+UC03 ---- A08
+UC13 -- A08
+@enduml
