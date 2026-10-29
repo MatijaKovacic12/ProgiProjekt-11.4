@@ -65,6 +65,10 @@ function AgencyDashboardPage() {
     const employee = employees.find((e) => e.id === employeeId);
     if (!employee) return;
 
+    if (!window.confirm(`Are you sure you want to change the role for ${employee.name} to ${newRole}?`)) {
+      return;
+    }
+
     if (newRole === 'Client') {
       setEmployees((prev) => prev.filter((e) => e.id !== employeeId));
     } else {

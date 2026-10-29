@@ -189,10 +189,16 @@ function AdminManagementPage() {
   };
 
   const handleDeleteTour = (tourId) => {
+    if (!window.confirm('Are you sure you want to delete this tour?')) {
+      return;
+    }
     setToursList((prev) => prev.filter((t) => t.id !== tourId));
   };
 
   const handleChangeStatus = (bookingId, newStatus) => {
+    if (newStatus === 'Cancelled' && !window.confirm('Are you sure you want to cancel this booking?')) {
+      return;
+    }
     setBookingsList((prev) =>
       prev.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
     );
