@@ -26,7 +26,6 @@
 - **«include»:** UC-13 Obavještavanje o otkazivanju obvezno je i zajedničko ponašanje triju obrazaca otkazivanja (UC-10, UC-11, UC-12). Zato nema vlastitu vezu s ljudskim akterom.
 - **«extend»:** UC-18 Izvoz statistike u CSV neobvezno proširuje UC-17 na točki proširenja „Izvoz”, uz uvjet da voditelj zatraži izvoz. UC-17 je potpun i bez izvoza.
 - Pogreške i alternative opisane su u specifikacijama (3.2), a ne kao «extend».
-- Kandidati FR-36 (otkazivanje rezervacije od strane turista) i FR-37 (prijevozna sredstva) nisu na dijagramu jer nisu u odobrenom opsegu (Q-01, Q-02).
 
 Dijagram nije podijeljen jer je čitljiv kao cjelina. Ciljevi su grupirani prema akterima od vrha prema dnu.
 
