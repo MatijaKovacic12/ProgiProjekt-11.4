@@ -9,6 +9,7 @@ import GuideDashboardPage from './pages/GuideDashboardPage.jsx';
 import AdminManagementPage from './pages/AdminManagementPage.jsx';
 import OrganizerAssignmentPage from './pages/OrganizerAssignmentPage.jsx';
 import AgencyDashboardPage from './pages/AgencyDashboardPage.jsx';
+import { getCurrentUser, logout } from './api/authClient.js';
 
 function App() {
   const [currentPath, setCurrentPath] = useState(
@@ -32,6 +33,16 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  // if user is logged in on backend (OAuth), use their real role
+  useEffect(() => {
+    getCurrentUser().then((user) => {
+      if (user) {
+        setUserRole(user.role);
+        localStorage.setItem('userRole', user.role);
+      }
+    });
+  }, []);
+
   const navigate = (path) => {
     window.history.pushState({}, '', path);
     setCurrentPath(path);
@@ -43,6 +54,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    logout();
     setUserRole('unregistered');
     localStorage.setItem('userRole', 'unregistered');
     navigate('/login');
