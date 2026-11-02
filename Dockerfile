@@ -30,8 +30,8 @@ COPY backend/src ./src
 # Copy compiled frontend assets into Spring Boot's static resources directory
 COPY --from=frontend-builder /app/frontend/dist ./src/main/resources/static/
 
-# Package executable JAR (skip tests during image build)
-RUN ./mvnw clean package -DskipTests
+# Package executable JAR (skip tests during image build, enable Lombok annotation processing for Java 25)
+RUN ./mvnw clean package -DskipTests -Dmaven.compiler.proc=full
 RUN cp target/TuristAgency-*.jar target/app.jar
 
 # ==========================================
