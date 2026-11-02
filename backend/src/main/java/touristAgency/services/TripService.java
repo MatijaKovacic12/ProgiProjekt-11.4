@@ -68,9 +68,6 @@ public class TripService {
         this.tripMapper = tripMapper;
     }
 
-    /**
-     * Dohvaća sve aktivne izlete poredane po nazivu.
-     */
     @Transactional(readOnly = true)
     public List<TripSummaryResponse> getAllTrips() {
         List<Trip> trips = tripRepository.findByActiveTrueOrderByNameAsc();
@@ -79,9 +76,7 @@ public class TripService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Pretražuje i filtrira izlete prema zadanim kriterijima (lokacija, kategorija, cijena, trajanje, slobodna mjesta).
-     */
+
     @Transactional(readOnly = true)
     public List<TripSummaryResponse> searchTrips(TripSearchCriteria criteria) {
         if (criteria == null) {
@@ -117,9 +112,7 @@ public class TripService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Dohvaća pune detalje pojedinog izleta uz izračun slobodnih mjesta po terminima.
-     */
+
     @Transactional(readOnly = true)
     public TripDetailsResponse getTripById(Long id) {
         Trip trip = tripRepository.findWithDetailsById(id)
@@ -158,9 +151,7 @@ public class TripService {
         return tripMapper.toDetailsResponse(trip, mainLocName, departurePoint, services, sessionResponses, landmarks);
     }
 
-    /**
-     * Stvara novi izlet, povezuje kategoriju, lokacije i početne termine.
-     */
+
     public TripDetailsResponse createTrip(CreateTripRequest request) {
         validateCreateRequest(request);
 
@@ -176,7 +167,7 @@ public class TripService {
             duration = tripMapper.parseDurationToMinutes(request.getDuration());
         }
         if (duration == null || duration <= 0) {
-            duration = 60; // Podrazumijevano 60 minuta
+            duration = 60;
         }
         trip.setDurationMinutes(duration);
 
@@ -195,7 +186,7 @@ public class TripService {
 
         BigDecimal[] coords = parseCoordinates(request.getPoiCoordinates());
 
-        // 1. Glavna lokacija
+
         String locationName = request.resolveLocationName();
         if (locationName != null && !locationName.isBlank()) {
             Location mainLoc = new Location();
@@ -209,7 +200,7 @@ public class TripService {
             locationRepository.save(mainLoc);
         }
 
-        // 2. Mjesto polaska
+
         if (request.getDeparturePoint() != null && !request.getDeparturePoint().isBlank()) {
             Location depLoc = new Location();
             depLoc.setName(request.getDeparturePoint());
@@ -222,7 +213,7 @@ public class TripService {
             locationRepository.save(depLoc);
         }
 
-        // 3. Znamenitosti ako su poslane
+
         if (request.getLandmarks() != null) {
             for (LandmarkRequest lmReq : request.getLandmarks()) {
                 Location lm = new Location();
@@ -237,7 +228,7 @@ public class TripService {
             }
         }
 
-        // 4. Početni termini ako su poslani
+
         if (request.getScheduledTimeSlots() != null) {
             for (OffsetDateTime slotTime : request.getScheduledTimeSlots()) {
                 if (slotTime != null) {
@@ -253,9 +244,7 @@ public class TripService {
         return getTripById(savedTrip.getId());
     }
 
-    /**
-     * Ažurira postojeći izlet i njegove lokacije.
-     */
+
     public TripDetailsResponse updateTrip(Long id, UpdateTripRequest request) {
         Trip trip = tripRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip with id " + id + " not found"));
@@ -304,7 +293,7 @@ public class TripService {
 
         Trip savedTrip = tripRepository.save(trip);
 
-        // Ažuriranje ili stvaranje glavne lokacije
+
         String locationName = request.resolveLocationName();
         if (locationName != null && !locationName.isBlank()) {
             Optional<Location> mainLocOpt = locationRepository.findFirstByTripIdAndType(id, LocationType.MAIN);
@@ -325,7 +314,7 @@ public class TripService {
             }
         }
 
-        // Ažuriranje ili stvaranje mjesta polaska
+
         if (request.getDeparturePoint() != null && !request.getDeparturePoint().isBlank()) {
             Optional<Location> depLocOpt = locationRepository.findFirstByTripIdAndType(id, LocationType.DEPARTURE);
             if (depLocOpt.isPresent()) {
@@ -348,9 +337,7 @@ public class TripService {
         return getTripById(savedTrip.getId());
     }
 
-    /**
-     * Meko brisanje izleta i svih njegovih termina (active = false).
-     */
+
     public void deleteTrip(Long id) {
         Trip trip = tripRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip with id " + id + " not found"));
@@ -369,9 +356,7 @@ public class TripService {
         }
     }
 
-    /**
-     * Dohvaća sve aktivne termine za pojedini izlet s izračunatim slobodnim mjestima.
-     */
+
     @Transactional(readOnly = true)
     public List<TripSessionResponse> getSessionsForTrip(Long tripId) {
         Trip trip = tripRepository.findById(tripId)
@@ -387,9 +372,7 @@ public class TripService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Dodaje novi termin za izlet uz provjeru budućeg datuma i izračun vremena završetka.
-     */
+
     public TripSessionResponse addSessionToTrip(Long tripId, CreateTripSessionRequest request) {
         Trip trip = tripRepository.findById(tripId)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip with id " + tripId + " not found"));
@@ -422,9 +405,7 @@ public class TripService {
         return tripMapper.toTripSessionResponse(savedSession, (long) trip.getMaxParticipants());
     }
 
-    /**
-     * Otkazuje pojedinačni termin (active = false).
-     */
+
     public void cancelSession(Long tripId, Long sessionId) {
         TripSession session = tripSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip session with id " + sessionId + " not found"));
@@ -437,9 +418,7 @@ public class TripService {
         tripSessionRepository.save(session);
     }
 
-    /**
-     * Dohvaća sve znamenitosti za izlet (za prikaz na karti).
-     */
+
     @Transactional(readOnly = true)
     public List<LocationResponse> getLandmarksForTrip(Long tripId) {
         if (!tripRepository.existsById(tripId)) {
@@ -451,9 +430,7 @@ public class TripService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Traži znamenitosti u blizini korisnikovih GPS koordinata (digitalni vodič unutar zadane udaljenosti).
-     */
+
     @Transactional(readOnly = true)
     public List<LocationResponse> getLandmarksNearby(Long tripId, double lat, double lon, double radiusMeters) {
         if (!tripRepository.existsById(tripId)) {
@@ -465,9 +442,7 @@ public class TripService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Izračunava ukupnu cijenu rezervacije (baza + odabrane dodatne usluge pomnoženo s brojem osoba).
-     */
+
     @Transactional(readOnly = true)
     public PriceCalculationResponse calculatePrice(Long tripId, int participants, List<Long> serviceIds) {
         if (participants < 1) {
@@ -509,7 +484,6 @@ public class TripService {
                 .build();
     }
 
-    // Pomoćne interne metode
     private TripSummaryResponse mapToSummaryResponse(Trip trip) {
         String mainLoc = locationRepository.findFirstByTripIdAndType(trip.getId(), LocationType.MAIN)
                 .map(Location::getName)

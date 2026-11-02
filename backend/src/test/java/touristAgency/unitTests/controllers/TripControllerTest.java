@@ -45,7 +45,7 @@ class TripControllerTest {
 
     @BeforeEach
     void setUp() {
-        // Konfiguriramo samostalni (standalone) MockMvc s našim kontrolerom i GlobalExceptionHandlerom
+
         mockMvc = MockMvcBuilders.standaloneSetup(tripController)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();

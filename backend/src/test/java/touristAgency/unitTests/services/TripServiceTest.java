@@ -68,7 +68,7 @@ class TripServiceTest {
     @Mock
     private ReservationRepository reservationRepository;
 
-    // Spy je stvarni objekt (ne mock) koji koristimo za pretvorbu DTO-ova
+
     @Spy
     private TripMapper tripMapper = new TripMapper();
 
@@ -163,7 +163,7 @@ class TripServiceTest {
         when(tripSessionRepository.findByTripIdAndActiveTrueOrderByStartTimeAsc(100L))
                 .thenReturn(List.of(session));
 
-        // Simuliramo da su već rezervirana 3 mjesta
+
         when(reservationRepository.sumBookedSeats(301L)).thenReturn(3L);
         when(locationRepository.findByTripIdAndTypeOrderByNameAsc(100L, LocationType.LANDMARK))
                 .thenReturn(Collections.emptyList());
@@ -175,7 +175,7 @@ class TripServiceTest {
         assertThat(response.getAdditionalServices()).hasSize(1);
         assertThat(response.getAdditionalServices().get(0).getName()).isEqualTo("Audio guide");
         assertThat(response.getScheduledSessions()).hasSize(1);
-        // Provjera poslovne logike: 18 (max) - 3 (booked) = 15 slobodnih mjesta
+
         assertThat(response.getScheduledSessions().get(0).getAvailableSeats()).isEqualTo(15L);
     }
 
@@ -238,7 +238,7 @@ class TripServiceTest {
         assertThat(result.getTitle()).isEqualTo("Plitvice Lakes Tour");
         verify(tripRepository).save(any(Trip.class));
 
-        // POPRAVAK: kažemo Mockitu da očekujemo barem jedno spremanje lokacije (ili točno 2 puta)
+
         verify(locationRepository, org.mockito.Mockito.atLeastOnce()).save(any(Location.class));
     }
 
@@ -297,7 +297,7 @@ class TripServiceTest {
 
         tripService.deleteTrip(100L);
 
-        // Provjera da ništa nije obrisano iz baze, nego je active postavljen na false
+
         assertThat(testTrip.isActive()).isFalse();
         assertThat(session.isActive()).isFalse();
         verify(tripRepository).save(testTrip);
@@ -370,7 +370,7 @@ class TripServiceTest {
         when(tripRepository.findById(100L)).thenReturn(Optional.of(testTrip));
         when(additionalServiceRepository.findAllById(List.of(10L))).thenReturn(List.of(testService));
 
-        // 3 osobe: Baza = 3 * 25.00 = 75.00. Dodatak = 3 * 8.00 = 24.00. Ukupno = 99.00
+
         PriceCalculationResponse calc = tripService.calculatePrice(100L, 3, List.of(10L));
 
         assertThat(calc).isNotNull();

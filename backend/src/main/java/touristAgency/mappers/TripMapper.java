@@ -19,9 +19,7 @@ import java.util.stream.Collectors;
 @Component
 public class TripMapper {
 
-    /**
-     * Pretvara minute u format prilagođen korisniku (npr. 150 -> "2.5 hours", 60 -> "1 hour", 45 -> "45 mins").
-     */
+
     public String formatDuration(Integer minutes) {
         if (minutes == null || minutes <= 0) {
             return "N/A";
@@ -37,9 +35,7 @@ public class TripMapper {
         return String.format(java.util.Locale.US, "%.1f hours", hours);
     }
 
-    /**
-     * Pomoćna metoda za pretvaranje korisničkog unosa (npr. "3 hours") natrag u minute (180).
-     */
+
     public Integer parseDurationToMinutes(String duration) {
         if (duration == null || duration.isBlank()) {
             return null;
@@ -61,9 +57,7 @@ public class TripMapper {
         }
     }
 
-    /**
-     * Preslikava bazu Trip u sažeti DTO za kartice na pretrazi (GET /api/trips).
-     */
+
     public TripSummaryResponse toSummaryResponse(Trip trip, String mainLocation, String departurePoint, List<String> timeSlots) {
         String categoryName = trip.getCategory() != null ? trip.getCategory().getName() : null;
         List<String> services = trip.getAdditionalServices() != null
@@ -92,9 +86,7 @@ public class TripMapper {
                 .build();
     }
 
-    /**
-     * Preslikava Trip u detaljni DTO za stranicu pojedinog izleta (GET /api/trips/{id}).
-     */
+
     public TripDetailsResponse toDetailsResponse(Trip trip,
                                                  String mainLocation,
                                                  String departurePoint,
@@ -134,9 +126,7 @@ public class TripMapper {
                 .build();
     }
 
-    /**
-     * Preslikava entitet Location u LocationResponse.
-     */
+
     public LocationResponse toLocationResponse(Location loc) {
         if (loc == null) return null;
         return LocationResponse.builder()
@@ -150,9 +140,6 @@ public class TripMapper {
                 .build();
     }
 
-    /**
-     * Preslikava entitet AdditionalService u AdditionalServiceResponse.
-     */
     public AdditionalServiceResponse toAdditionalServiceResponse(AdditionalService service) {
         if (service == null) return null;
         return AdditionalServiceResponse.builder()
@@ -163,9 +150,7 @@ public class TripMapper {
                 .build();
     }
 
-    /**
-     * Preslikava termin TripSession u TripSessionResponse s izračunatim slobodnim mjestima.
-     */
+
     public TripSessionResponse toTripSessionResponse(TripSession session, Long availableSeats) {
         if (session == null) return null;
         return TripSessionResponse.builder()

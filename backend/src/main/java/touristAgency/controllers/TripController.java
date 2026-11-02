@@ -41,10 +41,7 @@ public class TripController {
         this.tripService = tripService;
     }
 
-    /**
-     * GET /api/trips - Popis svih aktivnih izleta uz mogućnost pretraživanja i filtriranja.
-     * Status: 200 OK
-     */
+
     @GetMapping
     public ResponseEntity<List<TripSummaryResponse>> getAllTrips(@ModelAttribute TripSearchCriteria criteria) {
         boolean hasFilters = criteria != null && (
@@ -68,20 +65,13 @@ public class TripController {
         return ResponseEntity.ok(trips);
     }
 
-    /**
-     * GET /api/trips/{id} - Detalji pojedinog izleta (za stranicu detalja i rezervaciju).
-     * Status: 200 OK (ili 404 ako ne postoji)
-     */
     @GetMapping("/{id}")
     public ResponseEntity<TripDetailsResponse> getTripById(@PathVariable Long id) {
         TripDetailsResponse tripDetails = tripService.getTripById(id);
         return ResponseEntity.ok(tripDetails);
     }
 
-    /**
-     * POST /api/trips - Kreiranje novog izleta (Administrator).
-     * Status: 201 Created s Location zaglavljem
-     */
+
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<TripDetailsResponse> createTrip(@Valid @RequestBody CreateTripRequest request) {
         TripDetailsResponse createdTrip = tripService.createTrip(request);
@@ -89,10 +79,7 @@ public class TripController {
         return ResponseEntity.created(locationUri).body(createdTrip);
     }
 
-    /**
-     * PUT /api/trips/{id} - Ažuriranje postojećeg izleta (Administrator).
-     * Status: 200 OK
-     */
+
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<TripDetailsResponse> updateTrip(@PathVariable Long id,
                                                           @Valid @RequestBody UpdateTripRequest request) {
@@ -100,30 +87,21 @@ public class TripController {
         return ResponseEntity.ok(updatedTrip);
     }
 
-    /**
-     * DELETE /api/trips/{id} - Meko brisanje / deaktivacija izleta (Administrator).
-     * Status: 204 No Content
-     */
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTrip(@PathVariable Long id) {
         tripService.deleteTrip(id);
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * GET /api/trips/{id}/sessions - Popis svih aktivnih termina za izlet s izračunatim slobodnim mjestima.
-     * Status: 200 OK
-     */
+
     @GetMapping("/{id}/sessions")
     public ResponseEntity<List<TripSessionResponse>> getTripSessions(@PathVariable Long id) {
         List<TripSessionResponse> sessions = tripService.getSessionsForTrip(id);
         return ResponseEntity.ok(sessions);
     }
 
-    /**
-     * POST /api/trips/{id}/sessions - Dodavanje novog termina za izlet (Administrator).
-     * Status: 201 Created s Location zaglavljem
-     */
+
     @PostMapping(value = "/{id}/sessions", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<TripSessionResponse> addTripSession(@PathVariable Long id,
                                                               @Valid @RequestBody CreateTripSessionRequest request) {
@@ -132,10 +110,6 @@ public class TripController {
         return ResponseEntity.created(sessionUri).body(createdSession);
     }
 
-    /**
-     * DELETE /api/trips/{id}/sessions/{sessionId} - Otkazivanje pojedinog termina izleta.
-     * Status: 204 No Content
-     */
     @DeleteMapping("/{id}/sessions/{sessionId}")
     public ResponseEntity<Void> cancelTripSession(@PathVariable Long id,
                                                   @PathVariable Long sessionId) {
@@ -143,11 +117,7 @@ public class TripController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * GET /api/trips/{id}/landmarks - Znamenitosti izleta (podrška za mobilni digitalni vodič na karti).
-     * Podržava opcionalno filtriranje po GPS koordinatama i radijusu (?lat=...&lon=...&radiusMeters=100).
-     * Status: 200 OK
-     */
+
     @GetMapping("/{id}/landmarks")
     public ResponseEntity<List<LocationResponse>> getLandmarks(
             @PathVariable Long id,
@@ -162,10 +132,7 @@ public class TripController {
         return ResponseEntity.ok(landmarks);
     }
 
-    /**
-     * GET /api/trips/{id}/calculate-price - Brzi izračun ukupne cijene (baza + dodaci * broj osoba).
-     * Status: 200 OK
-     */
+
     @GetMapping("/{id}/calculate-price")
     public ResponseEntity<PriceCalculationResponse> calculatePrice(
             @PathVariable Long id,
