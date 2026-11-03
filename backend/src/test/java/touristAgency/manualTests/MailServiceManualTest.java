@@ -10,14 +10,16 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 class MailServiceManualTest {
 
     @Test
     @EnabledIfEnvironmentVariable(named = "MAIL_USERNAME", matches = ".+")
-    void sendsTestMailToMailtrap() {
+    void sendsTestMail() {
         JavaMailSenderImpl sender = new JavaMailSenderImpl();
-        sender.setHost("sandbox.smtp.mailtrap.io");
-        sender.setPort(2525);
+        sender.setHost("smtp.gmail.com");
+        sender.setPort(587);
         sender.setUsername(System.getenv("MAIL_USERNAME"));
         sender.setPassword(System.getenv("MAIL_PASSWORD"));
         sender.getJavaMailProperties().put("mail.smtp.auth", "true");
@@ -25,15 +27,15 @@ class MailServiceManualTest {
 
         MailService mailService = new MailService(sender);
 
-        mailService.sendMail("ana@test.com", "Test", "Radi napokon!");
+        assertTrue(mailService.sendMail("izleti.g114@gmail.com", "Test", "Radi napokon!"));
     }
 
     @Test
     @EnabledIfEnvironmentVariable(named = "MAIL_USERNAME", matches = ".+")
-    void sendsReservationConfirmationToMailtrap() {
+    void sendsReservationConfirmation() {
         JavaMailSenderImpl sender = new JavaMailSenderImpl();
-        sender.setHost("sandbox.smtp.mailtrap.io");
-        sender.setPort(2525);
+        sender.setHost("smtp.gmail.com");
+        sender.setPort(587);
         sender.setUsername(System.getenv("MAIL_USERNAME"));
         sender.setPassword(System.getenv("MAIL_PASSWORD"));
         sender.getJavaMailProperties().put("mail.smtp.auth", "true");
@@ -42,7 +44,7 @@ class MailServiceManualTest {
 
         AppUser ana = new AppUser();
         ana.setFirstName("Ana");
-        ana.setEmail("ana@test.com");
+        ana.setEmail("izleti.g114@gmail.com");
 
         Trip trip = new Trip();
         trip.setName("Rafting na Cetini");
@@ -66,6 +68,6 @@ class MailServiceManualTest {
         r.setTotalPrice(new BigDecimal("165.00"));
         r.addAdditionalService(transport, 3);
 
-        mailService.sendReservationConfirmation(r);
+        assertTrue(mailService.sendReservationConfirmation(r));
     }
 }
