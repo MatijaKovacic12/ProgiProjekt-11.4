@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 const mockClientBookings = [
   {
     id: 'MB-101',
@@ -45,6 +47,19 @@ function getStatusBadgeClass(status) {
 }
 
 function MyBookingsPage() {
+  const [bookings, setBookings] = useState(mockClientBookings);
+
+  const handleCancel = (id) => {
+    if (!window.confirm('Are you sure you want to cancel this reservation?')) {
+      return;
+    }
+    setBookings((prev) =>
+      prev.map((booking) =>
+        booking.id === id ? { ...booking, status: 'Cancelled' } : booking
+      )
+    );
+  };
+
   return (
     <div className="page-container">
       <div style={{ marginBottom: '1.75rem' }}>
@@ -67,10 +82,11 @@ function MyBookingsPage() {
               <th>Selected Add-ons</th>
               <th>Total Price</th>
               <th>Current Reservation Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {mockClientBookings.map((booking) => (
+            {bookings.map((booking) => (
               <tr key={booking.id}>
                 <td style={{ fontWeight: 600, color: '#111827' }}>{booking.tourTitle}</td>
                 <td>{booking.dateTime}</td>
@@ -90,6 +106,17 @@ function MyBookingsPage() {
                   <span className={getStatusBadgeClass(booking.status)}>
                     {booking.status}
                   </span>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    style={{ color: '#b91c1c' }}
+                    onClick={() => handleCancel(booking.id)}
+                    disabled={booking.status === 'Cancelled'}
+                  >
+                    Cancel
+                  </button>
                 </td>
               </tr>
             ))}
