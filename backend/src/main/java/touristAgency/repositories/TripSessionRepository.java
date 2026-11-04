@@ -27,6 +27,16 @@ public interface TripSessionRepository extends JpaRepository<TripSession, Long> 
     Optional<TripSession> findByIdForUpdate(@Param("id") Long id);
 
     @Query("""
+            select s from TripSession s
+            join fetch s.trip t
+            where s.active = true
+              and t.active = true
+              and s.startTime > :now
+            order by s.startTime
+            """)
+    List<TripSession> findUpcomingActive(@Param("now") OffsetDateTime now);
+
+    @Query("""
             select s.id        as sessionId,
                    t.id        as tripId,
                    s.startTime as startTime,

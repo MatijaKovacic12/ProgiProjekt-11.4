@@ -112,4 +112,23 @@ public class TripSessionRepositoryTest extends RepositoryTestBase {
 
         assertTrue(tripSessions.findUpcomingWithAvailability(List.of(trip.getId()), now).isEmpty());
     }
+
+    @Test
+    void findUpcomingActive_returnsOnlyFutureActiveSessions() {
+        TripSession cancelled = session(trip, now.plusDays(5));
+        cancelled.setActive(false);
+        tripSessions.saveAndFlush(cancelled);
+
+        List<TripSession> result = tripSessions.findUpcomingActive(now);
+
+        assertEquals(List.of(upcoming.getId()), result.stream().map(TripSession::getId).toList());
+    }
+
+    @Test
+    void findUpcomingActive_excludesSessionsOfInactiveTrip() {
+        trip.setActive(false);
+        trips.saveAndFlush(trip);
+
+        assertTrue(tripSessions.findUpcomingActive(now).isEmpty());
+    }
 }
