@@ -1,11 +1,3 @@
-export async function GetData(url){
-    const res = await fetch(`/api${url}`);
-    if(!res.ok) throw new Error("Error na backendu: "+res.status);
-    
-        return res.json()
-    
-}
-
 export class ApiError extends Error {
     constructor(status, code, message, fieldErrors) {
         super(message)
@@ -38,4 +30,16 @@ export async function apiRequest(method, url, body){
 
     if (res.status === 204) return null;
     return res.json();
+}
+
+export async function GetData(url){
+    return apiRequest('GET', url)
+}
+
+export async function PostData(url, data){
+    return apiRequest('POST', url, data)
+}
+
+export async function DeleteData(url){
+    return apiRequest('DELETE', url)
 }
