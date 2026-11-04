@@ -20,6 +20,7 @@ public class MailService {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom("izleti.g114@gmail.com");
+
             message.setTo(to);
             message.setSubject(subject);
             message.setText(text);
@@ -52,6 +53,27 @@ public class MailService {
             return sendMail(to, subject, text);
         } catch (RuntimeException e) {
             log.error("Ne mogu složiti potvrdu za rezervaciju {}: {}", r.getId(), e.getMessage());
+            return false;
+        }
+    }
+
+
+    public boolean sendReservationCancellation(Reservation r) {
+        try {
+            Trip trip = r.getTripSession().getTrip();
+
+            String to = r.getCustomer().getEmail();
+            String subject = "Otkazana rezervacija: " + trip.getName();
+
+            String text = "Poštovani/a " + r.getCustomer().getFirstName() + ",\n\n"
+                    + "vaša rezervacija je otkazana.\n\n"
+                    + "Izlet: " + trip.getName() + "\n"
+                    + "Termin: " + r.getTripSession().getStartTime().format(DATE_FORMAT) + "\n"
+                    + "Broj osoba: " + r.getNumberOfPeople() + "\n";
+
+            return sendMail(to, subject, text);
+        } catch (RuntimeException e) {
+            log.error("Ne mogu složiti obavijest o otkazivanju za rezervaciju {}: {}", r.getId(), e.getMessage());
             return false;
         }
     }

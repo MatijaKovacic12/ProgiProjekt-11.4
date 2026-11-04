@@ -15,10 +15,9 @@ import touristAgency.dto.CreateTripRequest;
 import touristAgency.dto.PriceCalculationResponse;
 import touristAgency.dto.TripDetailsResponse;
 import touristAgency.dto.TripSummaryResponse;
-import touristAgency.exceptions.GlobalExceptionHandler;
 import touristAgency.exceptions.ResourceNotFoundException;
 import touristAgency.services.TripService;
-
+import touristAgency.controllers.GlobalExceptionHandler;
 import java.math.BigDecimal;
 import java.util.List;
 

@@ -29,7 +29,8 @@ class MailServiceTest {
     }
 
     private SimpleMailMessage sentMessage() {
-        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        ArgumentCaptor<SimpleMailMessage> captor =
+                ArgumentCaptor.forClass(SimpleMailMessage.class);
         verify(mailSender).send(captor.capture());
         return captor.getValue();
     }
@@ -112,6 +113,7 @@ class MailServiceTest {
 
         Trip trip = new Trip();
         trip.setName("Rafting na Cetini");
+
         if (full) {
             Location departure = new Location();
             departure.setName("Omiš, autobusni kolodvor");
@@ -121,7 +123,8 @@ class MailServiceTest {
 
         TripSession session = new TripSession();
         session.setTrip(trip);
-        session.setStartTime(OffsetDateTime.of(2026, 11, 15, 9, 0, 0, 0, ZoneOffset.ofHours(1)));
+        session.setStartTime(OffsetDateTime.of(
+                2026, 11, 15, 9, 0, 0, 0, ZoneOffset.ofHours(1)));
 
         Reservation r = new Reservation();
         r.setCustomer(ana);
@@ -135,6 +138,40 @@ class MailServiceTest {
             transport.setPrice(new BigDecimal("10.00"));
             r.addAdditionalService(transport, 3);
         }
+
         return r;
+    }
+
+    @Test
+    void reservationCancellation_containsDetails() {
+        Reservation r = sampleReservation(true);
+
+        boolean sent = mailService.sendReservationCancellation(r);
+
+        SimpleMailMessage msg = sentMessage();
+        String text = msg.getText();
+        assertTrue(sent);
+        assertArrayEquals(new String[]{"ana@test.com"}, msg.getTo());
+        assertEquals("Otkazana rezervacija: Rafting na Cetini", msg.getSubject());
+        assertTrue(text.contains("otkazana"));
+        assertTrue(text.contains("Izlet: Rafting na Cetini"));
+        assertTrue(text.contains("Termin: 15.11.2026. u 09:00"));
+        assertTrue(text.contains("Broj osoba: 3"));
+    }
+
+    @Test
+    void reservationCancellation_returnsFalseWhenServerFails() {
+        doThrow(new MailSendException("Server ne radi"))
+                .when(mailSender).send(any(SimpleMailMessage.class));
+
+        assertFalse(mailService.sendReservationCancellation(sampleReservation(true)));
+    }
+
+    @Test
+    void reservationCancellation_returnsFalseForIncompleteReservation() {
+        boolean sent = mailService.sendReservationCancellation(new Reservation());
+
+        assertFalse(sent);
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
     }
 }

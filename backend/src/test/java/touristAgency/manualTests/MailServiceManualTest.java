@@ -40,6 +40,7 @@ class MailServiceManualTest {
         sender.setPassword(System.getenv("MAIL_PASSWORD"));
         sender.getJavaMailProperties().put("mail.smtp.auth", "true");
         sender.getJavaMailProperties().put("mail.smtp.starttls.enable", "true");
+
         MailService mailService = new MailService(sender);
 
         AppUser ana = new AppUser();
@@ -48,6 +49,7 @@ class MailServiceManualTest {
 
         Trip trip = new Trip();
         trip.setName("Rafting na Cetini");
+
         Location departure = new Location();
         departure.setName("Omiš, autobusni kolodvor");
         departure.setType(LocationType.DEPARTURE);
@@ -55,7 +57,8 @@ class MailServiceManualTest {
 
         TripSession session = new TripSession();
         session.setTrip(trip);
-        session.setStartTime(OffsetDateTime.of(2026, 11, 15, 9, 0, 0, 0, ZoneOffset.ofHours(1)));
+        session.setStartTime(OffsetDateTime.of(
+                2026, 11, 15, 9, 0, 0, 0, ZoneOffset.ofHours(1)));
 
         AdditionalService transport = new AdditionalService();
         transport.setName("Prijevoz");

@@ -1,1 +1,1 @@
-this folder will have exception handling classes and logic
+this folder holds custom exceptions (ResourceNotFoundException -> 404, BusinessConflictException -> 409); they are translated to JSON ErrorResponse in controllers/GlobalExceptionHandler

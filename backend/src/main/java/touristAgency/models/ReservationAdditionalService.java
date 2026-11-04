@@ -38,5 +38,4 @@ public class ReservationAdditionalService {
         this.quantity = quantity;
         this.unitPrice = additionalService.getPrice();
     }
-
 }

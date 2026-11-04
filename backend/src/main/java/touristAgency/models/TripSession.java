@@ -32,6 +32,4 @@ public class TripSession extends  BaseEntity {
         this.startTime = start;
         this.endTime = start.plusMinutes(trip.getDurationMinutes());
     }
-
-
 }
