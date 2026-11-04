@@ -22,6 +22,7 @@ public interface TripSessionGuideRepository extends JpaRepository<TripSessionGui
             select case when count(sg) > 0 then true else false end
             from TripSessionGuide sg join sg.tripSession s
             where sg.guide.id = :guideId
+              and s.active = true
               and s.startTime < :end
               and s.endTime   > :start
             """)
@@ -37,6 +38,19 @@ public interface TripSessionGuideRepository extends JpaRepository<TripSessionGui
             order by s.startTime
             """)
     List<TripSessionGuide> findAssignmentsForGuide(@Param("guideId") Long guideId);
+
+    @Query("""
+            select sg from TripSessionGuide sg
+            join fetch sg.tripSession s
+            join fetch s.trip t
+            where sg.guide.id = :guideId
+              and s.active = true
+              and t.active = true
+              and s.endTime > :now
+            order by s.startTime
+            """)
+    List<TripSessionGuide> findActiveAssignmentsForGuide(@Param("guideId") Long guideId,
+                                                         @Param("now") OffsetDateTime now);
 
     @Query("""
             select sg from TripSessionGuide sg
