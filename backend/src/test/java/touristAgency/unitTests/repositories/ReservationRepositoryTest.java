@@ -10,6 +10,7 @@ import touristAgency.repositories.projection.TopItem;
 import touristAgency.repositories.projection.TripOccupancy;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -62,10 +63,10 @@ public class ReservationRepositoryTest extends RepositoryTestBase {
 
     @Test
     void searchAdmin_searchesNameAndEmailCaseInsensitive() {
-        assertEquals(4, reservations.searchAdmin(null, null, null, "ANA", PAGE).getTotalElements());
-        assertEquals(4, reservations.searchAdmin(null, null, null, "horvat", PAGE).getTotalElements());
-        assertEquals(4, reservations.searchAdmin(null, null, null, "@test.hr", PAGE).getTotalElements());
-        assertEquals(0, reservations.searchAdmin(null, null, null, "nepostoji", PAGE).getTotalElements());
+        assertEquals(4, reservations.searchAdminWithoutDate(null, null, null, "ANA", PAGE).getTotalElements());
+        assertEquals(4, reservations.searchAdminWithoutDate(null, null, null, "horvat", PAGE).getTotalElements());
+        assertEquals(4, reservations.searchAdminWithoutDate(null, null, null, "@test.hr", PAGE).getTotalElements());
+        assertEquals(0, reservations.searchAdminWithoutDate(null, null, null, "nepostoji", PAGE).getTotalElements());
     }
 
     @Test
@@ -168,5 +169,27 @@ public class ReservationRepositoryTest extends RepositoryTestBase {
         assertEquals(1, top.size());
         assertEquals("Planinarenje", top.get(0).getName());
         assertEquals(3L, top.get(0).getTotal());
+    }
+    @Test
+    void searchAdmin_filtersByCreatedDate() {
+        LocalDate date = upcomingRes.getCreatedAt().toLocalDate();
+
+        Page<Reservation> result = reservations.searchAdmin(
+                null, null, null, "", date, PAGE
+        );
+
+        assertTrue(result.getTotalElements() > 0);
+
+        assertTrue(result.getContent().stream()
+                .allMatch(r -> r.getCreatedAt().toLocalDate().equals(date)));
+    }
+    @Test
+    void findAll_returnsReservationsWithPagination() {
+        Page<Reservation> result = reservations.findAll(PAGE);
+
+        assertEquals(4, result.getTotalElements());
+        assertEquals(4, result.getContent().size());
+        assertTrue(result.getContent().stream()
+                .allMatch(r -> r.getTripSession() != null));
     }
 }

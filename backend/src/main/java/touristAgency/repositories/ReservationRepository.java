@@ -25,30 +25,48 @@ public interface ReservationRepository extends JpaRepository<Reservation,Long> {
             """)
     long sumBookedSeats(@Param("tripSessionId") Long tripSessionId);
 
-    @EntityGraph(attributePaths = {"tripSession", "tripSession.trip",
-            "reservationAdditionalServices", "reservationAdditionalServices.additionalService"})
+    @EntityGraph(attributePaths = {
+            "tripSession",
+            "tripSession.trip",
+            "tripSession.trip.locations",
+            "reservationAdditionalServices",
+            "reservationAdditionalServices.additionalService"
+    })
     List<Reservation> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
 
-    @EntityGraph(attributePaths = {"customer", "tripSession", "tripSession.trip",
+    // tripSession.trip.locations je potreban za e-mail (mjesto polaska); locations je Set pa nema "multiple bag" problema
+    @EntityGraph(attributePaths = {"customer", "tripSession", "tripSession.trip", "tripSession.trip.locations",
             "reservationAdditionalServices", "reservationAdditionalServices.additionalService"})
     Optional<Reservation> findDetailsById(Long id);
 
-    @EntityGraph(attributePaths = {"customer", "tripSession", "tripSession.trip"})
+    @EntityGraph(attributePaths = {
+            "customer",
+            "tripSession",
+            "tripSession.trip",
+            "reservationAdditionalServices",
+            "reservationAdditionalServices.additionalService"
+    })
     @Query("""
-            select r from Reservation r
-            where (:tripId    is null or r.tripSession.trip.id = :tripId)
-              and (:sessionId is null or r.tripSession.id      = :sessionId)
-              and (:status    is null or r.status              = :status)
-              and (:term      is null
-                   or lower(r.customer.firstName) like lower(concat('%', :term, '%'))
-                   or lower(r.customer.lastName)  like lower(concat('%', :term, '%'))
-                   or lower(r.customer.email)     like lower(concat('%', :term, '%')))
-            """)
-    Page<Reservation> searchAdmin(@Param("tripId") Long tripId,
-                                  @Param("sessionId") Long sessionId,
-                                  @Param("status") ReservationStatus status,
-                                  @Param("term") String term,
-                                  Pageable pageable);
+        select r from Reservation r
+        where (:tripId is null or r.tripSession.trip.id = :tripId)
+          and (:sessionId is null or r.tripSession.id = :sessionId)
+          and (:status is null or r.status = :status)
+and (
+    :term = ''
+    or lower(r.customer.firstName) like lower(concat('%', :term, '%'))
+    or lower(r.customer.lastName) like lower(concat('%', :term, '%'))
+    or lower(r.customer.email) like lower(concat('%', :term, '%'))
+)
+and (cast(:createdDate as date) is null
+     or cast(r.createdAt as date) = cast(:createdDate as date))
+        """)
+    Page<Reservation> searchAdmin(
+            @Param("tripId") Long tripId,
+            @Param("sessionId") Long sessionId,
+            @Param("status") ReservationStatus status,
+            @Param("term") String term,
+            @Param("createdDate") java.time.LocalDate createdDate,
+            Pageable pageable);
 
     @Query("""
             select r from Reservation r
@@ -124,4 +142,39 @@ public interface ReservationRepository extends JpaRepository<Reservation,Long> {
           and r.status = touristAgency.models.ReservationStatus.CONFIRMED
         """)
     int cancelAllForSession(@Param("sessionId") Long sessionId, @Param("now") OffsetDateTime now);
+
+    @EntityGraph(attributePaths = {
+            "customer",
+            "tripSession",
+            "tripSession.trip",
+            "reservationAdditionalServices",
+            "reservationAdditionalServices.additionalService"
+    })
+    Page<Reservation> findAll(Pageable pageable);
+
+    @EntityGraph(attributePaths = {
+            "customer",
+            "tripSession",
+            "tripSession.trip",
+            "reservationAdditionalServices",
+            "reservationAdditionalServices.additionalService"
+    })
+    @Query("""
+        select r from Reservation r
+        where (:tripId is null or r.tripSession.trip.id = :tripId)
+          and (:sessionId is null or r.tripSession.id = :sessionId)
+          and (:status is null or r.status = :status)
+and (
+    :term = ''
+    or lower(r.customer.firstName) like lower(concat('%', :term, '%'))
+    or lower(r.customer.lastName) like lower(concat('%', :term, '%'))
+    or lower(r.customer.email) like lower(concat('%', :term, '%'))
+)
+        """)
+    Page<Reservation> searchAdminWithoutDate(
+            @Param("tripId") Long tripId,
+            @Param("sessionId") Long sessionId,
+            @Param("status") ReservationStatus status,
+            @Param("term") String term,
+            Pageable pageable);
 }
