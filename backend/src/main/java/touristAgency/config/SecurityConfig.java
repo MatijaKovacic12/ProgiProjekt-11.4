@@ -12,13 +12,14 @@ import touristAgency.services.CurrentUserService;
 
 @Configuration
 public class SecurityConfig {
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            OAuth2LoginSuccessHandler successHandler,
                                            CurrentUserService currentUser) throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // /api/admin/** smije samo ADMIN (uloga se čita iz baze, vidi CurrentUserService)
+                        // /api/admin/** smije samo ADMIN (uloga se čita iz baze)
                         .requestMatchers("/api/admin/**").access((authentication, context) ->
                                 new AuthorizationDecision(currentUser.hasRole(Role.ADMIN)))
                         // rezervacije zahtijevaju prijavu
@@ -31,6 +32,7 @@ public class SecurityConfig {
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
                         .logoutSuccessHandler((request, response, authentication) -> response.setStatus(200)));
+
         return http.build();
     }
 }

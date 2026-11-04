@@ -32,6 +32,7 @@ import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import touristAgency.exceptions.ResourceNotFoundException;
 
 @ExtendWith(MockitoExtension.class)
 class ReservationServiceTest {
@@ -120,7 +121,7 @@ class ReservationServiceTest {
         when(users.existsById(1L)).thenReturn(false);
 
         // Act + Assert
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(ResourceNotFoundException.class, () ->
                 reservationService.getMyReservations(1L)
         );
 
@@ -185,7 +186,7 @@ class ReservationServiceTest {
                 .thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(ResourceNotFoundException.class, () ->
                 reservationService.getReservationDetails(999L, 1L)
         );
     }
@@ -201,7 +202,7 @@ class ReservationServiceTest {
                 .thenReturn(Optional.of(reservation));
 
         // Act + Assert
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(ResourceNotFoundException.class, () ->
                 reservationService.getReservationDetails(21L, 1L)
         );
     }
@@ -241,7 +242,7 @@ class ReservationServiceTest {
                 .thenReturn(Optional.empty());
 
         // Act & Assert
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(ResourceNotFoundException.class, () ->
                 reservationService.cancelReservation(999L, 1L)
         );
 
@@ -265,7 +266,7 @@ class ReservationServiceTest {
                 .thenReturn(Optional.of(reservation));
 
         // Act & Assert
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(ResourceNotFoundException.class, () ->
                 reservationService.cancelReservation(21L, 1L)
         );
 
@@ -441,7 +442,7 @@ class ReservationServiceTest {
         when(users.existsById(1L)).thenReturn(false);
 
         // Act & Assert
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(ResourceNotFoundException.class, () ->
                 reservationService.getActiveInProgress(1L)
         );
 

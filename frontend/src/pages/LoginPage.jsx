@@ -1,3 +1,5 @@
+import { loginWith } from '../api/authClient';
+
 function LoginPage({ navigate, onSelectRole }) {
   const handleRoleClick = (role, path) => {
     if (onSelectRole) {
@@ -22,8 +24,8 @@ function LoginPage({ navigate, onSelectRole }) {
           <button
             type="button"
             className="oauth-button"
-            disabled
-            style={{ width: '100%', cursor: 'default' }}
+            onClick={() => loginWith('google')}
+            style={{ width: '100%', cursor: 'pointer' }}
           >
             <svg
               width="20"
@@ -38,7 +40,21 @@ function LoginPage({ navigate, onSelectRole }) {
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            <span>Log in with OAuth 2.0 / OpenID Connect</span>
+            <span>Log in with Google</span>
+          </button>
+          <button
+            type="button"
+            className="oauth-button"
+            onClick={() => loginWith('microsoft')}
+            style={{ width: '100%', cursor: 'pointer', marginTop: '0.75rem' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="2" y="2" width="9.5" height="9.5" fill="#f25022" />
+              <rect x="12.5" y="2" width="9.5" height="9.5" fill="#7fba00" />
+              <rect x="2" y="12.5" width="9.5" height="9.5" fill="#00a4ef" />
+              <rect x="12.5" y="12.5" width="9.5" height="9.5" fill="#ffb900" />
+            </svg>
+            <span>Log in with Microsoft</span>
           </button>
         </div>
 

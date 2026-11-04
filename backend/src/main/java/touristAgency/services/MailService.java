@@ -19,7 +19,8 @@ public class MailService {
     public boolean sendMail(String to, String subject, String text) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom("turizam@test.com");
+            message.setFrom("izleti.g114@gmail.com");
+
             message.setTo(to);
             message.setSubject(subject);
             message.setText(text);
@@ -55,6 +56,7 @@ public class MailService {
             return false;
         }
     }
+
 
     public boolean sendReservationCancellation(Reservation r) {
         try {

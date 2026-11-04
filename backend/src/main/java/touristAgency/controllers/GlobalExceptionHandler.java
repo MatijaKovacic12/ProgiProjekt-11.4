@@ -14,6 +14,7 @@ import touristAgency.exceptions.ResourceNotFoundException;
 import touristAgency.exceptions.UnauthorizedException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import touristAgency.exceptions.*;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -77,5 +78,9 @@ public class GlobalExceptionHandler {
                                                 String message,
                                                 Map<String, String> fieldErrors) {
         return ResponseEntity.status(status).body(new ErrorResponse(status.value(), code, message, fieldErrors));
+    }
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException e) {
+        return build(HttpStatus.BAD_REQUEST, "BAD_REQUEST", e.getMessage(), null);
     }
 }
