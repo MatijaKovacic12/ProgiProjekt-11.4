@@ -27,6 +27,7 @@ public class RoleManagementService{
     public List<UserRoleResponse> getEmployees(){
         return users.findByRoleInOrderByLastNameAscFirstNameAsc(UserRoleResponse.EMPLOYEE_ROLES)
                 .stream()
+                .filter(u -> u.getRole() != Role.MANAGER)
                 .map(UserRoleResponse::from)
                 .toList();
     }
@@ -44,6 +45,11 @@ public class RoleManagementService{
     }
     @Transactional
     public UserRoleResponse changeRole(Long userId, Role newRole) {
+        if (newRole == Role.MANAGER) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                     "Manager role cannot be assigned");
+                 }
+
         AppUser user = users.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "User " + userId + " does not exist"));
@@ -63,6 +69,6 @@ public class RoleManagementService{
         }
 
         user.setRole(newRole);
-        return UserRoleResponse.from(user);
+        return UserRoleResponse.from(users.save(user));
     }
 }
