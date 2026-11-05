@@ -89,23 +89,6 @@ Kompromisi oblikovanja objašnjeni su u [arhitekturi i oblikovanju](docs/4-Arhit
 
 Uloge se tijekom projekta mogu mijenjati. Repozitorij i dogovoreni alat za praćenje zadataka (engl. task tracker) služe kao dodatni dokazi timskog rada.
 
-## Doprinos projektu
-
-Zadaci i nedostaci evidentiraju se u [GitHub Issues / alat za praćenje zadataka]. Svaka promjena razvija se u zasebnoj grani i ulazi u glavnu granu kroz pull request koji pregledava barem jedan drugi član tima. [Prilagodite stvarnom načinu rada tima.]
-
-<a id="license"></a>
-
-**Status licence:** [Navedite licencu i poveznicu na `LICENSE`, ili napišite: „Aplikaciji nije dodijeljena licenca koja dopušta javnu ponovnu uporabu.”]
-
-Dokumentacijski predložak kolegija sadrži otvorene obrazovne sadržaje (engl. Open Educational Resources, OER) i licenciran je licencom Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International. Ta licenca **ne određuje automatski licencu studentske aplikacije**; tim treba jasno navesti licencu svojeg projekta u prethodnom retku i datoteci `LICENSE`, ako je primjenjivo.
-
-Kod trećih strana, skupovi podataka, slike, ikone i drugi sadržaji zadržavaju vlastite licence i uvjete uporabe.
-
-<a id="ai-usage"></a>
-## Uporaba umjetne inteligencije [![AI Usage: Disclosed](https://img.shields.io/badge/AI%20Usage-Disclosed-blue.svg)](https://www.fer.unizg.hr/_download/repository/Policy%20on%20the%20appropriate%20use%20of%20artificial%20intelligence%20at%20the%20faculty%20of%20electrical%20engineering%20and%20computing%5B1%5D.pdf)
-
-Ovaj projekt slijedi FER-ova [pravila o primjerenoj uporabi umjetne inteligencije](https://www.fer.unizg.hr/_download/repository/Policy%20on%20the%20appropriate%20use%20of%20artificial%20intelligence%20at%20the%20faculty%20of%20electrical%20engineering%20and%20computing%5B1%5D.pdf).
-
 **Izjava:** Tim je koristio alate umjetne inteligencije [DeepSeek, Claude, …] kao pomoć pri izradi početnih skica UML dijagrama (PlantUML), strukturiranju projektne dokumentacije i [navedite ostalo, npr. objašnjenja pogrešaka u kodu]. Sve generirane skice tim je usporedio sa stvarnim kodom i zahtjevima te ih ispravio tamo gdje se nisu podudarale; svaki član može objasniti dio koda i dokumentacije za koji je odgovoran. U alate nisu uneseni pristupni podaci ni osobni podaci korisnika. [Uskladite s timom prije predaje.]
 
 <a id="code-of-conduct-and-support"></a>
