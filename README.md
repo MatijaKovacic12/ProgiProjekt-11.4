@@ -79,11 +79,13 @@ Kompromisi oblikovanja objašnjeni su u [arhitekturi i oblikovanju](docs/4-Arhit
 
 | Član | Glavna uloga ili doprinos |
 | --- | --- |
-| [Ime Prezime] | [npr. voditelj tima, arhitektura i dokumentacija] |
-| [Ime Prezime] | [npr. poslužitelj — rezervacije i e-pošta] |
-| [Ime Prezime] | [npr. poslužitelj — izleti, termini, uloge] |
-| [Ime Prezime] | [npr. web-klijent] |
-| [Ime Prezime] | [npr. baza podataka i postavljanje] |
+| Matija Kovačić | voditelj tima |
+| Leon Bačanović | - |
+| Luka Kranjčec | - |
+| Dorijan Ferenec | - |
+| Roko Babić | - |
+| Lovro Gale | - |
+| Marko Zelenović | - |
 
 Uloge se tijekom projekta mogu mijenjati. Repozitorij i dogovoreni alat za praćenje zadataka (engl. task tracker) služe kao dodatni dokazi timskog rada.
 
