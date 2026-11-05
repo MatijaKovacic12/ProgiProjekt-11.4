@@ -1,80 +1,132 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   periodMetrics,
   topFiveActivities,
   topFiveAddons,
   tourPerformanceData,
-  initialEmployees,
-  registeredUsersDirectory,
 } from '../mock-backoffice-data.js';
+
+import {getEmployees, findUserByEmail, changeRole  } from '../api/roleManagementClient.js';
+
+ const ROLE_LABELS = {
+   guide: 'Guide',
+   organizer: 'Organizer',
+   admin: 'Administrator',
+   manager: 'Agency Manager',
+   client: 'Client',
+ };
+
+ const ROLE_BADGE = {
+   admin: 'badge-warning',
+   organizer: 'badge-info',
+   manager: 'badge-danger',
+   guide: 'badge-success',
+ };
+
+const EMPLOYEE_ROLE_OPTIONS = ['guide', 'organizer', 'admin'];
 
 function AgencyDashboardPage() {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
-  const [employees, setEmployees] = useState(initialEmployees);
   const [notification, setNotification] = useState(null);
-
+  const [employees, setEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
+  const [employeesError, setEmployeesError] = useState(null);
   const [searchEmail, setSearchEmail] = useState('');
   const [foundUser, setFoundUser] = useState(null);
   const [searchError, setSearchError] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [savingNew, setSavingNew] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
 
 
-  const handleSearchUser = (e) => {
-    e.preventDefault();
-    const query = searchEmail.trim().toLowerCase();
-    if (!query) {
+  useEffect(() => {
+   let cancelled = false;
+   getEmployees()
+     .then((list) => {
+       if (!cancelled) setEmployees(list);
+       if (!cancelled) setEmployees(list.filter((e) => e.role !== 'manager'));
+     })
+     .catch((err) => {
+       if (!cancelled) setEmployeesError(err.message);
+     })
+     .finally(() => {
+       if (!cancelled) setEmployeesLoading(false);
+     });
+   return () => {
+     cancelled = true;
+   };
+ }, []);
+
+ 
+ const handleSearchUser = async (e) => {
+  e.preventDefault();
+  const query = searchEmail.trim();
+  setFoundUser(null);
+
+   if (!query) {
       setSearchError('Please enter a registered user email address.');
-      setFoundUser(null);
       return;
     }
 
-    const alreadyEmployee = employees.find((emp) => emp.email.toLowerCase() === query);
-    if (alreadyEmployee) {
-      setSearchError(`"${alreadyEmployee.name}" is already an employee with role: ${alreadyEmployee.role}.`);
-      setFoundUser(null);
-      return;
-    }
-
-    const user = registeredUsersDirectory.find((u) => u.email.toLowerCase() === query);
-    if (!user) {
-      setSearchError(`No registered user found with email "${searchEmail}".`);
-      setFoundUser(null);
-      return;
-    }
-
-    setFoundUser({
-      ...user,
-      selectedRole: 'Guide',
-    });
+    setSearching(true);
     setSearchError(null);
-  };
+    try {
+      const user = await findUserByEmail(query);
+      if (!user) {
+        setSearchError(`No registered user found with email "${query}".`);
+        return;
+      }
+      if (user.isEmployee) {
+        setSearchError(`"${user.name}" is already an employee with role: ${ROLE_LABELS[user.role]}.`);
+        return;
+      }
+      setFoundUser({ ...user, selectedRole: 'guide' });
+    } catch (err) {
+      setSearchError(err.message);
+    } finally {
+      setSearching(false);
+    }
+ };
+  
 
-  const handleSaveNewEmployee = () => {
+const handleSaveNewEmployee = async () => {
     if (!foundUser) return;
-    const newEmp = {
-      id: `EMP-${Date.now()}`,
-      name: foundUser.name,
-      email: foundUser.email,
-      role: foundUser.selectedRole,
-    };
-    setEmployees((prev) => [...prev, newEmp]);
-    setFoundUser(null);
-    setSearchEmail('');
+    setSavingNew(true);
+    try {
+      const saved = await changeRole(foundUser.id, foundUser.selectedRole);
+      setEmployees((prev) => [...prev, saved]);
+      setNotification(`${saved.name} added as ${ROLE_LABELS[saved.role]}.`);
+      setFoundUser(null);
+      setSearchEmail('');
+    } catch (err) {
+      setSearchError(err.message);
+    } finally {
+      setSavingNew(false);
+    }
   };
 
-  const handleRoleChange = (employeeId, newRole) => {
+  const handleRoleChange = async (employeeId, newRole) => {
     const employee = employees.find((e) => e.id === employeeId);
     if (!employee) return;
 
-    if (!window.confirm(`Are you sure you want to change the role for ${employee.name} to ${newRole}?`)) {
+    if (!window.confirm(`Are you sure you want to change the role for ${employee.name} to ${ROLE_LABELS[newRole]}?`)) {
       return;
     }
 
-    if (newRole === 'Client') {
-      setEmployees((prev) => prev.filter((e) => e.id !== employeeId));
-    } else {
-      setEmployees((prev) =>
-        prev.map((e) => (e.id === employeeId ? { ...e, role: newRole } : e))
-      );
+   setUpdatingId(employeeId);
+    try {
+      const updated = await changeRole(employeeId, newRole);
+      if (updated.isEmployee) {
+        setEmployees((prev) => prev.map((e) => (e.id === employeeId ? updated : e)));
+        setNotification(`${updated.name} is now ${ROLE_LABELS[updated.role]}.`);
+      } else {
+        setEmployees((prev) => prev.filter((e) => e.id !== employeeId));
+        setNotification(`${updated.name} was revoked to Client.`);
+      }
+    } catch (err) {
+      window.alert(`Could not change role: ${err.message}`);
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -295,9 +347,9 @@ function AgencyDashboardPage() {
                 onChange={(e) => setSearchEmail(e.target.value)}
               />
             </div>
-            <button type="submit" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
-              Search User
-            </button>
+            <button type="submit" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }} disabled={searching}>
+            {searching ? 'Searching...' : 'Search User'}
+             </button>
           </form>
 
           {searchError && (
@@ -340,18 +392,18 @@ function AgencyDashboardPage() {
                     setFoundUser({ ...foundUser, selectedRole: e.target.value })
                   }
                 >
-                  <option value="Guide">Guide</option>
-                  <option value="Organizer">Organizer</option>
-                  <option value="Administrator">Administrator</option>
-                  <option value="Agency Manager">Agency Manager</option>
+                  {EMPLOYEE_ROLE_OPTIONS.map((role) => (
+                   <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+                     ))}
                 </select>
 
                 <button
                   type="button"
                   className="btn btn-sm btn-primary"
                   onClick={handleSaveNewEmployee}
+                  disabled={savingNew}
                 >
-                  Save
+                  {savingNew ? 'Saving...' : 'Save'}
                 </button>
                 <button
                   type="button"
@@ -360,6 +412,7 @@ function AgencyDashboardPage() {
                     setFoundUser(null);
                     setSearchEmail('');
                   }}
+                  disabled={savingNew}
                 >
                   Cancel
                 </button>
@@ -379,23 +432,36 @@ function AgencyDashboardPage() {
               </tr>
             </thead>
             <tbody>
+                {employeesLoading && (
+                   <tr>
+                     <td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>
+                     Loading employees...
+                     </td>
+                    </tr>
+                )}
+
+               {!employeesLoading && employeesError && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: '#b91c1c' }}>
+                  ✕ Could not load employees: {employeesError}
+                 </td>
+                </tr>
+   )}
+
+   {!employeesLoading && !employeesError && employees.length === 0 && (
+     <tr>
+       <td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>
+         No employees yet.
+       </td>
+     </tr>
+   )}
               {employees.map((emp) => (
                 <tr key={emp.id}>
                   <td style={{ fontWeight: 600 }}>{emp.name}</td>
                   <td>{emp.email}</td>
                   <td>
-                    <span
-                      className={`badge ${
-                        emp.role === 'Administrator'
-                          ? 'badge-warning'
-                          : emp.role === 'Organizer'
-                          ? 'badge-info'
-                          : emp.role === 'Agency Manager'
-                          ? 'badge-danger'
-                          : 'badge-success'
-                      }`}
-                    >
-                      {emp.role}
+                    <span className={`badge ${ROLE_BADGE[emp.role] ?? 'badge-neutral'}`}>
+                   {ROLE_LABELS[emp.role] ?? emp.role}
                     </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
@@ -408,13 +474,13 @@ function AgencyDashboardPage() {
                         className="form-select"
                         style={{ width: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
                         value={emp.role}
+                        disabled={updatingId==emp.id}
                         onChange={(e) => handleRoleChange(emp.id, e.target.value)}
                       >
-                        <option value="Guide">Guide</option>
-                        <option value="Organizer">Organizer</option>
-                        <option value="Administrator">Administrator</option>
-                        <option value="Agency Manager">Agency Manager</option>
-                        <option value="Client">Revoke to Client</option>
+                      {EMPLOYEE_ROLE_OPTIONS.map((role) => (
+                         <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+                       ))}
+                      <option value="client">Revoke to Client</option>
                       </select>
                     </div>
                   </td>
