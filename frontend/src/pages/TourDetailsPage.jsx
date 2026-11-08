@@ -100,10 +100,20 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
     );
   }
 
-  // if service already selected -> remove it, else -> add it to list
-  const handleToggleAddon = (service) => {
-    setSelectedAddons((prev) => // prev = selectedAddons
-      prev.includes(service) ? prev.filter((s) => s !== service) : [...prev, service]
+  // Pomoćne funkcije: podržavaju i objekte s backenda {id, name, price} i obične stringove
+  const getServiceName = (s) => (typeof s === 'object' && s !== null ? s.name : s);
+  const getServicePrice = (s) => {
+    if (typeof s === 'object' && s !== null && s.price != null) {
+      return Number(s.price);
+    }
+    const name = getServiceName(s);
+    return ADD_ON_PRICES[name] || 10;
+  };
+  const getServiceKey = (s) => (typeof s === 'object' && s !== null ? (s.id || s.name) : s);
+
+  const handleToggleAddon = (serviceName) => {
+    setSelectedAddons((prev) =>
+        prev.includes(serviceName) ? prev.filter((s) => s !== serviceName) : [...prev, serviceName]
     );
   };
 
@@ -118,11 +128,14 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
     }
   };
 
-  const baseTotal = selectedTour.price * participants;
-  const addonsPerPerson = selectedAddons.reduce(
-    (sum, service) => sum + (ADD_ON_PRICES[service] || 10),
-    0
-  );
+  const baseTotal = (Number(selectedTour.price) || 0) * participants;
+  const addonsPerPerson = selectedAddons.reduce((sum, serviceName) => {
+    const serviceObj = selectedTour.additionalServices?.find(
+        (s) => getServiceName(s) === serviceName
+    );
+    const price = serviceObj ? getServicePrice(serviceObj) : (ADD_ON_PRICES[serviceName] || 10);
+    return sum + price;
+  }, 0);
   const addonsTotal = addonsPerPerson * participants;
   const grandTotal = baseTotal + addonsTotal;
 
@@ -255,36 +268,39 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
             <div style={{ marginBottom: '1.25rem' }}>
               <label className="form-label">Optional Add-on Services</label>
               {selectedTour.additionalServices && selectedTour.additionalServices.length > 0 ? (
-                <div>
-                  {selectedTour.additionalServices.map((service) => {
-                    const price = ADD_ON_PRICES[service] || 10;
-                    const isChecked = selectedAddons.includes(service);
-                    return (
-                      <label
-                        key={service}
-                        className="service-checkbox-item"
-                        style={{ cursor: isUnregistered ? 'not-allowed' : 'pointer' }}
-                      >
+                  <div>
+                    {selectedTour.additionalServices.map((service) => {
+                      const serviceName = getServiceName(service);
+                      const servicePrice = getServicePrice(service);
+                      const serviceKey = getServiceKey(service);
+                      const isChecked = selectedAddons.includes(serviceName);
+
+                      return (
+                          <label
+                              key={serviceKey}
+                              className="service-checkbox-item"
+                              style={{ cursor: isUnregistered ? 'not-allowed' : 'pointer' }}
+                          >
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
                           <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => handleToggleAddon(service)}
-                            disabled={isUnregistered}
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => handleToggleAddon(serviceName)}
+                              disabled={isUnregistered}
                           />
-                          <span>{service}</span>
+                          <span>{serviceName}</span>
                         </span>
-                        <strong style={{ fontSize: '0.85rem', color: '#0369a1' }}>
-                          +€{price} / person
-                        </strong>
-                      </label>
-                    );
-                  })}
-                </div>
+                            <strong style={{ fontSize: '0.85rem', color: '#0369a1' }}>
+                              +€{servicePrice} / person
+                            </strong>
+                          </label>
+                      );
+                    })}
+                  </div>
               ) : (
-                <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: 0 }}>
-                  No extra services available for this tour.
-                </p>
+                  <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: 0 }}>
+                    No extra services available for this tour.
+                  </p>
               )}
             </div>
 
