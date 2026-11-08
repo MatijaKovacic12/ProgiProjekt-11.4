@@ -1,4 +1,5 @@
-import { useState, useId } from 'react';
+import { useState, useEffect, useId } from 'react';
+import { getTripById } from '../api/tripClient.js';
 
 const ADD_ON_PRICES = {
   "Audio guide": 8,
@@ -41,23 +42,61 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
   const slotSelectId = useId();
   const participantsInputId = useId();
 
-  const selectedTour = tours.find((t) => String(t.id) === String(tourId)) || tours[0];
-
-  const [selectedSlot, setSelectedSlot] = useState(
-    selectedTour?.scheduledTimeSlots?.[0] || ''
-  );
+  const initialTour = tours.find((t) => String(t.id) === String(tourId)) || null;
+  const [selectedTour, setSelectedTour] = useState(initialTour);
+  const [loading, setLoading] = useState(!initialTour);
+  const [error, setError] = useState(null);
+  const [selectedSlot, setSelectedSlot] = useState('');
   const [participants, setParticipants] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState([]);
 
-  if (!selectedTour) {
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    getTripById(tourId)
+        .then((data) => {
+          if (isMounted) {
+            setSelectedTour(data);
+            setError(null);
+
+            if (data.scheduledTimeSlots && data.scheduledTimeSlots.length > 0) {
+              setSelectedSlot(data.scheduledTimeSlots[0]);
+            }
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            setError(err.message);
+          }
+        })
+        .finally(() => {
+          if (isMounted) {
+            setLoading(false);
+          }
+        });
+    return () => {
+      isMounted = false;
+    };
+  }, [tourId]);
+
+  if (loading) {
     return (
-      <div className="page-container">
-        <h2>Tour Not Found</h2>
-        <p>No tour matches ID &quot;{tourId}&quot;.</p>
-        <button type="button" className="btn btn-primary" onClick={() => navigate('/tours')}>
-          ← Return to Tour Search
-        </button>
-      </div>
+        <div className="page-container" style={{ textAlign: 'center', padding: '3.5rem 1rem' }}>
+          <h2>Loading Tour Details...</h2>
+          <p style={{ color: '#6b7280' }}>Fetching latest information from server...</p>
+        </div>
+    );
+  }
+
+  if (error || !selectedTour) {
+    return (
+        <div className="page-container">
+          <h2>Tour Not Found</h2>
+          <p>{error || `No tour matches ID "${tourId}".`}</p>
+          <button type="button" className="btn btn-primary" onClick={() => navigate('/tours')}>
+            ← Return to Tour Search
+          </button>
+        </div>
     );
   }
 
@@ -150,7 +189,7 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
             <div style={{ marginBottom: '0.5rem' }}>
               <span style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 600 }}>DEPARTURE POINT</span>
               <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: 500 }}>
-                📍 {selectedTour.departurePoint}
+                📍 {selectedTour.departurePoint || selectedTour.location || 'Not specified'}
               </div>
             </div>
             <div>
@@ -172,18 +211,23 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
               <label htmlFor={slotSelectId} className="form-label">
                 Select Scheduled Time Slot
               </label>
+
               <select
-                id={slotSelectId}
-                className="form-select"
-                value={selectedSlot}
-                onChange={(e) => setSelectedSlot(e.target.value)}
-                disabled={isUnregistered}
+                  id={slotSelectId}
+                  className="form-select"
+                  value={selectedSlot}
+                  onChange={(e) => setSelectedSlot(e.target.value)}
+                  disabled={isUnregistered}
               >
-                {selectedTour.scheduledTimeSlots.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {formatSlotDate(slot)}
-                  </option>
-                ))}
+                {selectedTour.scheduledTimeSlots && selectedTour.scheduledTimeSlots.length > 0 ? (
+                    selectedTour.scheduledTimeSlots.map((slot) => (
+                        <option key={slot} value={slot}>
+                          {formatSlotDate(slot)}
+                        </option>
+                    ))
+                ) : (
+                    <option value="">No scheduled slots available</option>
+                )}
               </select>
             </div>
 
