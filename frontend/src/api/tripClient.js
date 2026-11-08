@@ -79,7 +79,7 @@ export async function getTripSessions(tripId) {
 
 
 export async function addTripSession(tripId, sessionData) {
-    const res = await fetch(`$/api/trips/${tripId}/sessions`, {
+    const res = await fetch(`/api/trips/${tripId}/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sessionData),
