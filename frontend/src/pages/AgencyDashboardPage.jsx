@@ -1,12 +1,7 @@
 import { useEffect, useState } from 'react';
-import {
-  periodMetrics,
-  topFiveActivities,
-  topFiveAddons,
-  tourPerformanceData,
-} from '../mock-backoffice-data.js';
 
 import {getEmployees, findUserByEmail, changeRole  } from '../api/roleManagementClient.js';
+import { getStatistics, getExportUrl } from '../api/statisticsClient.js';
 
  const ROLE_LABELS = {
    guide: 'Guide',
@@ -25,8 +20,21 @@ import {getEmployees, findUserByEmail, changeRole  } from '../api/roleManagement
 
 const EMPLOYEE_ROLE_OPTIONS = ['guide', 'organizer', 'admin'];
 
+function toIsoDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function currentMonthRange() {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { from: toIsoDate(first), to: toIsoDate(last) };
+}
+
 function AgencyDashboardPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [notification, setNotification] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(true);
@@ -37,6 +45,51 @@ function AgencyDashboardPage() {
   const [searching, setSearching] = useState(false);
   const [savingNew, setSavingNew] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
+  const [dateFrom, setDateFrom] = useState(() => currentMonthRange().from);
+  const [dateTo, setDateTo] = useState(() => currentMonthRange().to);
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState(null);
+
+  useEffect(() => {
+    if (!dateFrom || !dateTo) return;
+
+    let ignore = false;
+
+    getStatistics(dateFrom, dateTo)
+      .then((data) => {
+        if (!ignore) setStats(data);
+      })
+      .catch((err) => {
+        if (!ignore) {
+          setStats(null);
+          setStatsError(err.message);
+        }
+      })
+      .finally(() => {
+        if (!ignore) setStatsLoading(false);
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [dateFrom, dateTo]);
+
+  const handleExport = () => {
+    window.location.href = getExportUrl(dateFrom, dateTo);
+  };
+
+  const changeDateFrom = (value) => {
+    setDateFrom(value);
+    setStatsLoading(true);
+    setStatsError(null);
+  };
+
+  const changeDateTo = (value) => {
+    setDateTo(value);
+    setStatsLoading(true);
+    setStatsError(null);
+  };
 
 
   useEffect(() => {
@@ -130,8 +183,6 @@ const handleSaveNewEmployee = async () => {
     }
   };
 
-  const currentMetrics = periodMetrics[selectedPeriod] || periodMetrics.month;
-
   return (
     <div className="page-container">
       <div
@@ -148,6 +199,8 @@ const handleSaveNewEmployee = async () => {
           <button
             type="button"
             className="btn btn-primary"
+            onClick={handleExport}
+            disabled={statsLoading || !!statsError}
             style={{
               whiteSpace: 'nowrap',
               display: 'inline-flex',
@@ -195,74 +248,114 @@ const handleSaveNewEmployee = async () => {
             </h3>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <label htmlFor="period-selector" className="form-label" style={{ margin: 0, fontWeight: 600 }}>
-              Selected Period:
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <label htmlFor="date-from" className="form-label" style={{ margin: 0, fontWeight: 600 }}>
+              From:
             </label>
-            <select
-              id="period-selector"
-              className="form-select"
-              style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-            >
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-              <option value="year">This Year</option>
-            </select>
+            <input
+              id="date-from"
+              type="date"
+              className="form-input"
+              style={{ width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.9rem' }}
+              value={dateFrom}
+              max={dateTo}
+              onChange={(e) => changeDateFrom(e.target.value)}
+            />
+            <label htmlFor="date-to" className="form-label" style={{ margin: 0, fontWeight: 600 }}>
+              To:
+            </label>
+            <input
+              id="date-to"
+              type="date"
+              className="form-input"
+              style={{ width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.9rem' }}
+              value={dateTo}
+              min={dateFrom}
+              onChange={(e) => changeDateTo(e.target.value)}
+            />
           </div>
         </div>
 
-        <div className="stat-card-grid" style={{ marginBottom: '1.25rem' }}>
-          <div className="stat-card">
-            <span className="stat-card-label">Total Bookings</span>
-            <div className="stat-card-value">{currentMetrics.totalBookings}</div>
-            <span className="stat-card-sub" style={{ color: '#16a34a' }}>
-              Confirmed reservations in selected period
-            </span>
+        {statsError && (
+          <div style={{ marginBottom: '1rem', color: '#b91c1c', fontSize: '0.875rem' }}>
+            Could not load statistics: {statsError}
           </div>
+        )}
 
-          <div className="stat-card">
-            <span className="stat-card-label">Generated Revenue</span>
-            <div className="stat-card-value">
-              €{currentMetrics.generatedRevenue.toLocaleString()}
+        {statsLoading && !stats && !statsError && (
+          <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.875rem' }}>
+            Loading statistics...
+          </div>
+        )}
+
+        {stats && (
+          <>
+            {stats.reservationCount === 0 && (
+              <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.875rem' }}>
+                No reservations in the selected period.
+              </div>
+            )}
+
+            <div className="stat-card-grid" style={{ marginBottom: '1.25rem' }}>
+              <div className="stat-card">
+                <span className="stat-card-label">Total Bookings</span>
+                <div className="stat-card-value">{stats.reservationCount}</div>
+                <span className="stat-card-sub" style={{ color: '#16a34a' }}>
+                  {stats.cancelledCount} cancelled in selected period
+                </span>
+              </div>
+
+              <div className="stat-card">
+                <span className="stat-card-label">Generated Revenue</span>
+                <div className="stat-card-value">
+                  €{Number(stats.revenue).toLocaleString()}
+                </div>
+                <span className="stat-card-sub" style={{ color: '#16a34a' }}>
+                  From non-cancelled reservations
+                </span>
+              </div>
+
+              <div className="stat-card" style={{ gridColumn: 'span 1' }}>
+                <span className="stat-card-label">Top 5 Most Popular Categories</span>
+                {stats.topCategories.length === 0 ? (
+                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No data</span>
+                ) : (
+                  <ol style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {stats.topCategories.map((cat) => (
+                      <li key={cat.id} style={{ fontSize: '0.85rem', color: '#1f2937' }}>
+                        <span style={{ fontWeight: 600 }}>{cat.name}</span>
+                        <span style={{ color: '#64748b', fontSize: '0.8rem' }}> ({cat.total} bookings)</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+
+              <div className="stat-card" style={{ gridColumn: 'span 1' }}>
+                <span className="stat-card-label">Top 5 Most Requested Add-ons</span>
+                {stats.topAdditionalServices.length === 0 ? (
+                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No data</span>
+                ) : (
+                  <ol style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {stats.topAdditionalServices.map((addon) => (
+                      <li key={addon.id} style={{ fontSize: '0.85rem', color: '#1f2937' }}>
+                        <span style={{ fontWeight: 600 }}>{addon.name}</span>
+                        <span style={{ color: '#64748b', fontSize: '0.8rem' }}> ({addon.total} requests)</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
             </div>
-            <span className="stat-card-sub" style={{ color: '#16a34a' }}>
-              Gross bookings &amp; extras revenue
-            </span>
-          </div>
-
-          <div className="stat-card" style={{ gridColumn: 'span 1' }}>
-            <span className="stat-card-label">Top 5 Most Popular Activities</span>
-            <ol style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              {topFiveActivities.map((act) => (
-                <li key={act.rank} style={{ fontSize: '0.85rem', color: '#1f2937' }}>
-                  <span style={{ fontWeight: 600 }}>{act.title}</span>
-                  <span style={{ color: '#64748b', fontSize: '0.8rem' }}> ({act.bookingsCount} bookings)</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="stat-card" style={{ gridColumn: 'span 1' }}>
-            <span className="stat-card-label">Top 5 Most Requested Add-ons</span>
-            <ol style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              {topFiveAddons.map((addon) => (
-                <li key={addon.rank} style={{ fontSize: '0.85rem', color: '#1f2937' }}>
-                  <span style={{ fontWeight: 600 }}>{addon.name}</span>
-                  <span style={{ color: '#64748b', fontSize: '0.8rem' }}> ({addon.count} requests)</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </div>
+          </>
+        )}
       </section>
 
       <section style={{ marginBottom: '2.5rem' }}>
         <div className="section-header-row">
           <div>
             <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem', color: '#1f2937' }}>
-              Occupancy Tracker (Per Time Slot)
+              Occupancy Tracker (Per Tour)
             </h3>
           </div>
         </div>
@@ -272,26 +365,29 @@ const handleSaveNewEmployee = async () => {
             <thead>
               <tr>
                 <th>Tour Name</th>
-                <th>Departure Slot</th>
-                <th>Category</th>
-                <th>Bookings / Capacity</th>
+                <th>Sessions</th>
+                <th>Booked / Capacity</th>
                 <th>Occupancy Rate (%)</th>
-                <th style={{ textAlign: 'right' }}>Generated Revenue (€)</th>
               </tr>
             </thead>
             <tbody>
-              {tourPerformanceData.map((slot) => {
-                const isHighOccupancy = slot.occupancyRate >= 80;
-                const isMediumOccupancy = slot.occupancyRate >= 60 && slot.occupancyRate < 80;
+              {(!stats || stats.tripOccupancy.length === 0) && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>
+                    {statsLoading ? 'Loading...' : 'No sessions in the selected period.'}
+                  </td>
+                </tr>
+              )}
+
+              {stats && stats.tripOccupancy.map((trip) => {
+                const isHighOccupancy = trip.occupancyPercent >= 80;
+                const isMediumOccupancy = trip.occupancyPercent >= 60 && trip.occupancyPercent < 80;
 
                 return (
-                  <tr key={slot.id}>
-                    <td style={{ fontWeight: 600 }}>{slot.title}</td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{slot.dateTime}</td>
-                    <td>
-                      <span className="badge badge-info">{slot.category}</span>
-                    </td>
-                    <td>{slot.bookingsCount} / {slot.capacity} seats</td>
+                  <tr key={trip.tripId}>
+                    <td style={{ fontWeight: 600 }}>{trip.name}</td>
+                    <td>{trip.sessionCount}</td>
+                    <td>{trip.bookedPeople} / {trip.capacity} seats</td>
                     <td>
                       <span
                         className={`badge ${
@@ -302,11 +398,8 @@ const handleSaveNewEmployee = async () => {
                             : 'badge-neutral'
                         }`}
                       >
-                        {slot.occupancyRate}%
+                        {trip.occupancyPercent}%
                       </span>
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
-                      €{slot.revenue.toLocaleString()}
                     </td>
                   </tr>
                 );
