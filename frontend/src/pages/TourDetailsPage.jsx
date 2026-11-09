@@ -1,4 +1,5 @@
-import { useState, useId } from 'react';
+import { useState, useEffect, useId } from 'react';
+import { getTripById } from '../api/tripClient.js';
 
 const ADD_ON_PRICES = {
   "Audio guide": 8,
@@ -41,30 +42,78 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
   const slotSelectId = useId();
   const participantsInputId = useId();
 
-  const selectedTour = tours.find((t) => String(t.id) === String(tourId)) || tours[0];
-
-  const [selectedSlot, setSelectedSlot] = useState(
-    selectedTour?.scheduledTimeSlots?.[0] || ''
-  );
+  const initialTour = tours.find((t) => String(t.id) === String(tourId)) || null;
+  const [selectedTour, setSelectedTour] = useState(initialTour);
+  const [loading, setLoading] = useState(!initialTour);
+  const [error, setError] = useState(null);
+  const [selectedSlot, setSelectedSlot] = useState('');
   const [participants, setParticipants] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState([]);
 
-  if (!selectedTour) {
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    getTripById(tourId)
+        .then((data) => {
+          if (isMounted) {
+            setSelectedTour(data);
+            setError(null);
+
+            if (data.scheduledTimeSlots && data.scheduledTimeSlots.length > 0) {
+              setSelectedSlot(data.scheduledTimeSlots[0]);
+            }
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            setError(err.message);
+          }
+        })
+        .finally(() => {
+          if (isMounted) {
+            setLoading(false);
+          }
+        });
+    return () => {
+      isMounted = false;
+    };
+  }, [tourId]);
+
+  if (loading) {
     return (
-      <div className="page-container">
-        <h2>Tour Not Found</h2>
-        <p>No tour matches ID &quot;{tourId}&quot;.</p>
-        <button type="button" className="btn btn-primary" onClick={() => navigate('/tours')}>
-          ← Return to Tour Search
-        </button>
-      </div>
+        <div className="page-container" style={{ textAlign: 'center', padding: '3.5rem 1rem' }}>
+          <h2>Loading Tour Details...</h2>
+          <p style={{ color: '#6b7280' }}>Fetching latest information from server...</p>
+        </div>
     );
   }
 
-  // if service already selected -> remove it, else -> add it to list
-  const handleToggleAddon = (service) => {
-    setSelectedAddons((prev) => // prev = selectedAddons
-      prev.includes(service) ? prev.filter((s) => s !== service) : [...prev, service]
+  if (error || !selectedTour) {
+    return (
+        <div className="page-container">
+          <h2>Tour Not Found</h2>
+          <p>{error || `No tour matches ID "${tourId}".`}</p>
+          <button type="button" className="btn btn-primary" onClick={() => navigate('/tours')}>
+            ← Return to Tour Search
+          </button>
+        </div>
+    );
+  }
+
+  // Pomoćne funkcije: podržavaju i objekte s backenda {id, name, price} i obične stringove
+  const getServiceName = (s) => (typeof s === 'object' && s !== null ? s.name : s);
+  const getServicePrice = (s) => {
+    if (typeof s === 'object' && s !== null && s.price != null) {
+      return Number(s.price);
+    }
+    const name = getServiceName(s);
+    return ADD_ON_PRICES[name] || 10;
+  };
+  const getServiceKey = (s) => (typeof s === 'object' && s !== null ? (s.id || s.name) : s);
+
+  const handleToggleAddon = (serviceName) => {
+    setSelectedAddons((prev) =>
+        prev.includes(serviceName) ? prev.filter((s) => s !== serviceName) : [...prev, serviceName]
     );
   };
 
@@ -79,11 +128,14 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
     }
   };
 
-  const baseTotal = selectedTour.price * participants;
-  const addonsPerPerson = selectedAddons.reduce(
-    (sum, service) => sum + (ADD_ON_PRICES[service] || 10),
-    0
-  );
+  const baseTotal = (Number(selectedTour.price) || 0) * participants;
+  const addonsPerPerson = selectedAddons.reduce((sum, serviceName) => {
+    const serviceObj = selectedTour.additionalServices?.find(
+        (s) => getServiceName(s) === serviceName
+    );
+    const price = serviceObj ? getServicePrice(serviceObj) : (ADD_ON_PRICES[serviceName] || 10);
+    return sum + price;
+  }, 0);
   const addonsTotal = addonsPerPerson * participants;
   const grandTotal = baseTotal + addonsTotal;
 
@@ -150,7 +202,7 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
             <div style={{ marginBottom: '0.5rem' }}>
               <span style={{ fontSize: '0.85rem', color: '#6b7280', fontWeight: 600 }}>DEPARTURE POINT</span>
               <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: 500 }}>
-                📍 {selectedTour.departurePoint}
+                📍 {selectedTour.departurePoint || selectedTour.location || 'Not specified'}
               </div>
             </div>
             <div>
@@ -172,18 +224,23 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
               <label htmlFor={slotSelectId} className="form-label">
                 Select Scheduled Time Slot
               </label>
+
               <select
-                id={slotSelectId}
-                className="form-select"
-                value={selectedSlot}
-                onChange={(e) => setSelectedSlot(e.target.value)}
-                disabled={isUnregistered}
+                  id={slotSelectId}
+                  className="form-select"
+                  value={selectedSlot}
+                  onChange={(e) => setSelectedSlot(e.target.value)}
+                  disabled={isUnregistered}
               >
-                {selectedTour.scheduledTimeSlots.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {formatSlotDate(slot)}
-                  </option>
-                ))}
+                {selectedTour.scheduledTimeSlots && selectedTour.scheduledTimeSlots.length > 0 ? (
+                    selectedTour.scheduledTimeSlots.map((slot) => (
+                        <option key={slot} value={slot}>
+                          {formatSlotDate(slot)}
+                        </option>
+                    ))
+                ) : (
+                    <option value="">No scheduled slots available</option>
+                )}
               </select>
             </div>
 
@@ -211,36 +268,39 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
             <div style={{ marginBottom: '1.25rem' }}>
               <label className="form-label">Optional Add-on Services</label>
               {selectedTour.additionalServices && selectedTour.additionalServices.length > 0 ? (
-                <div>
-                  {selectedTour.additionalServices.map((service) => {
-                    const price = ADD_ON_PRICES[service] || 10;
-                    const isChecked = selectedAddons.includes(service);
-                    return (
-                      <label
-                        key={service}
-                        className="service-checkbox-item"
-                        style={{ cursor: isUnregistered ? 'not-allowed' : 'pointer' }}
-                      >
+                  <div>
+                    {selectedTour.additionalServices.map((service) => {
+                      const serviceName = getServiceName(service);
+                      const servicePrice = getServicePrice(service);
+                      const serviceKey = getServiceKey(service);
+                      const isChecked = selectedAddons.includes(serviceName);
+
+                      return (
+                          <label
+                              key={serviceKey}
+                              className="service-checkbox-item"
+                              style={{ cursor: isUnregistered ? 'not-allowed' : 'pointer' }}
+                          >
                         <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
                           <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => handleToggleAddon(service)}
-                            disabled={isUnregistered}
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => handleToggleAddon(serviceName)}
+                              disabled={isUnregistered}
                           />
-                          <span>{service}</span>
+                          <span>{serviceName}</span>
                         </span>
-                        <strong style={{ fontSize: '0.85rem', color: '#0369a1' }}>
-                          +€{price} / person
-                        </strong>
-                      </label>
-                    );
-                  })}
-                </div>
+                            <strong style={{ fontSize: '0.85rem', color: '#0369a1' }}>
+                              +€{servicePrice} / person
+                            </strong>
+                          </label>
+                      );
+                    })}
+                  </div>
               ) : (
-                <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: 0 }}>
-                  No extra services available for this tour.
-                </p>
+                  <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: 0 }}>
+                    No extra services available for this tour.
+                  </p>
               )}
             </div>
 

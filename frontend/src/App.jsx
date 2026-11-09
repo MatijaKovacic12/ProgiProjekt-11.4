@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import tours from './mock-tours.js';
+import { getTrips } from './api/tripClient.js';
 import LoginPage from './pages/LoginPage.jsx';
 import TourSearchPage from './pages/TourSearchPage.jsx';
 import TourDetailsPage from './pages/TourDetailsPage.jsx';
@@ -18,6 +18,29 @@ function App() {
   const [userRole, setUserRole] = useState(
     () => localStorage.getItem('userRole') || 'unregistered'
   );
+
+  const [tours, setTours] = useState([]);
+  const [loadingTours, setLoadingTours] = useState(true);
+
+  const loadTours = () => {
+    setLoadingTours(true);
+    getTrips()
+        .then((data) => {
+          setTours(data);
+        })
+        .catch((err) => {
+          console.error('Greška pri dohvaćanju izleta u App.jsx:', err);
+        })
+        .finally(() => {
+          setLoadingTours(false);
+        });
+  };
+
+  useEffect(() => {
+    if (currentPath === '/tours' || currentPath === '/') {
+      loadTours();
+    }
+  }, [currentPath]);
 
   useEffect(() => {
     if (window.location.pathname === '/') {
@@ -81,11 +104,11 @@ function App() {
   const isUnregistered = userRole === 'unregistered';
 
   const renderRoute = () => {
+    if (currentPath === '/tours' || currentPath === '/') {
+      return <TourSearchPage navigate={navigate} tours={tours} loading={loadingTours} />;
+    }
     if (currentPath === '/login') {
       return <LoginPage navigate={navigate} onSelectRole={handleSelectRole} />;
-    }
-    if (currentPath === '/tours' || currentPath === '/') {
-      return <TourSearchPage navigate={navigate} tours={tours} />;
     }
     if (currentPath.startsWith('/tours/')) {
       const tourId = currentPath.replace('/tours/', '');
