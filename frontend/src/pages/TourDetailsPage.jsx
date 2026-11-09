@@ -160,20 +160,25 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
       }));
 
   // Dodatne usluge s backenda imaju ID-jeve i stvarne cijene.
-  const addonOptions = backendReady
-    ? (details.additionalServices || []).map((service) => ({
-        key: String(service.id),
-        id: service.id,
-        name: service.name,
-        price: Number(service.price),
-      }))
-    : (selectedTour.additionalServices || []).map((name) => ({
-        key: name,
-        id: null,
-        name,
-        price: ADD_ON_PRICES[name] || 10,
-      }));
+ const addonOptions = backendReady
+  ? (details.additionalServices || []).map((service) => ({
+      key: String(service.id),
+      id: service.id,
+      name: service.name,
+      price: Number(service.price),
+    }))
+  : (selectedTour.additionalServices || []).map((service) => {
+      const name = typeof service === 'string' ? service : service.name;
 
+      return {
+        key: String(typeof service === 'string' ? service : service.id),
+        id: typeof service === 'string' ? null : service.id,
+        name,
+        price: typeof service === 'string'
+          ? (ADD_ON_PRICES[name] || 10)
+          : Number(service.price),
+      };
+    });
   const currentSlot =
     slotOptions.find((slot) => slot.key === selectedSlotKey) ||
     slotOptions[0] ||
