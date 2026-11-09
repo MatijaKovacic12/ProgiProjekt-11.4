@@ -1,37 +1,10 @@
-import { useState } from 'react';
-
-const mockClientBookings = [
-  {
-    id: 'MB-101',
-    tourTitle: 'Plitvice Lakes Guided Hiking Tour',
-    dateTime: '2026-11-08 08:30',
-    departurePoint: 'Entrance 1, Plitvice Lakes National Park',
-    participantCount: 2,
-    selectedAddons: ['Transport from Zagreb', 'Packed lunch'],
-    totalPrice: 194,
-    status: 'Confirmed',
-  },
-  {
-    id: 'MB-102',
-    tourTitle: 'Zagreb Historic Centre Walking Tour',
-    dateTime: '2026-10-15 10:00',
-    departurePoint: 'Ban Jelačić Square, Zagreb',
-    participantCount: 1,
-    selectedAddons: ['Audio guide'],
-    totalPrice: 33,
-    status: 'Completed',
-  },
-  {
-    id: 'MB-103',
-    tourTitle: 'Split Coastline and Islands Boat Excursion',
-    dateTime: '2026-10-22 09:30',
-    departurePoint: 'Split Harbour, Pier 4',
-    participantCount: 2,
-    selectedAddons: ['Snorkelling equipment rental'],
-    totalPrice: 164,
-    status: 'Cancelled',
-  },
-];
+import { useCallback, useEffect, useState } from 'react';
+import {
+  cancelReservation,
+  formatDateTime,
+  getMyReservations,
+  statusLabel,
+} from '../api/reservationClient.js';
 
 function getStatusBadgeClass(status) {
   switch (status) {
@@ -46,18 +19,49 @@ function getStatusBadgeClass(status) {
   }
 }
 
-function MyBookingsPage() {
-  const [bookings, setBookings] = useState(mockClientBookings);
+function canCancel(booking) {
+  return booking.status === 'CONFIRMED' && new Date(booking.startTime) > new Date();
+}
 
-  const handleCancel = (id) => {
+function MyBookingsPage() {
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [cancellingId, setCancellingId] = useState(null);
+
+  const loadBookings = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setBookings(await getMyReservations());
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadBookings();
+  }, [loadBookings]);
+
+  const handleCancel = async (booking) => {
     if (!window.confirm('Are you sure you want to cancel this reservation?')) {
       return;
     }
-    setBookings((prev) =>
-      prev.map((booking) =>
-        booking.id === id ? { ...booking, status: 'Cancelled' } : booking
-      )
-    );
+    setCancellingId(booking.id);
+    setError('');
+    setMessage('');
+    try {
+      await cancelReservation(booking.id);
+      setMessage(`Reservation for "${booking.tourTitle}" has been cancelled.`);
+      await loadBookings();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   return (
@@ -71,58 +75,89 @@ function MyBookingsPage() {
         </p>
       </div>
 
-      <div className="data-table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Tour Name</th>
-              <th>Date</th>
-              <th>Departure Point</th>
-              <th>Participant Count</th>
-              <th>Selected Add-ons</th>
-              <th>Total Price</th>
-              <th>Current Reservation Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bookings.map((booking) => (
-              <tr key={booking.id}>
-                <td style={{ fontWeight: 600, color: '#111827' }}>{booking.tourTitle}</td>
-                <td>{booking.dateTime}</td>
-                <td>📍 {booking.departurePoint}</td>
-                <td>{booking.participantCount} person(s)</td>
-                <td>
-                  {booking.selectedAddons && booking.selectedAddons.length > 0 ? (
-                    <span style={{ fontSize: '0.85rem', color: '#4b5563' }}>
-                      {booking.selectedAddons.join(', ')}
-                    </span>
-                  ) : (
-                    <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>None</span>
-                  )}
-                </td>
-                <td style={{ fontWeight: 600, color: '#0f172a' }}>€{booking.totalPrice}</td>
-                <td>
-                  <span className={getStatusBadgeClass(booking.status)}>
-                    {booking.status}
-                  </span>
-                </td>
-                <td>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-secondary"
-                    style={{ color: '#b91c1c' }}
-                    onClick={() => handleCancel(booking.id)}
-                    disabled={booking.status === 'Cancelled'}
-                  >
-                    Cancel
-                  </button>
-                </td>
+      {message && (
+        <div className="toast-banner" role="status">
+          <span>{message}</span>
+          <button
+            type="button"
+            className="btn btn-sm btn-secondary"
+            onClick={() => setMessage('')}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="error-banner" role="alert">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <p style={{ color: '#6b7280' }}>Loading your reservations…</p>
+      ) : (
+        <div className="data-table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Tour Name</th>
+                <th>Date</th>
+                <th>Departure Point</th>
+                <th>Participant Count</th>
+                <th>Selected Add-ons</th>
+                <th>Total Price</th>
+                <th>Current Reservation Status</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {bookings.length === 0 ? (
+                <tr>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                    You have no reservations yet.
+                  </td>
+                </tr>
+              ) : (
+                bookings.map((booking) => (
+                  <tr key={booking.id}>
+                    <td style={{ fontWeight: 600, color: '#111827' }}>{booking.tourTitle}</td>
+                    <td>{formatDateTime(booking.startTime)}</td>
+                    <td>{booking.departurePoint ? `📍 ${booking.departurePoint}` : '—'}</td>
+                    <td>{booking.participants} person(s)</td>
+                    <td>
+                      {booking.addons && booking.addons.length > 0 ? (
+                        <span style={{ fontSize: '0.85rem', color: '#4b5563' }}>
+                          {booking.addons.join(', ')}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>None</span>
+                      )}
+                    </td>
+                    <td style={{ fontWeight: 600, color: '#0f172a' }}>€{booking.totalPrice}</td>
+                    <td>
+                      <span className={getStatusBadgeClass(statusLabel(booking.status))}>
+                        {statusLabel(booking.status)}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
+                        style={{ color: '#b91c1c' }}
+                        onClick={() => handleCancel(booking)}
+                        disabled={!canCancel(booking) || cancellingId === booking.id}
+                      >
+                        {cancellingId === booking.id ? 'Cancelling…' : 'Cancel'}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
