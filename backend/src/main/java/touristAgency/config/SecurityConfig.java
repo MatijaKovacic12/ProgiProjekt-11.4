@@ -22,6 +22,9 @@ public class SecurityConfig {
                         // /api/admin/** smije samo ADMIN (uloga se čita iz baze)
                         .requestMatchers("/api/admin/**").access((authentication, context) ->
                                 new AuthorizationDecision(currentUser.hasRole(Role.ADMIN)))
+                        // /api/manager/** smije samo voditelj agencije (MANAGER)
+                        .requestMatchers("/api/manager/**").access((authentication, context) ->
+                                new AuthorizationDecision(currentUser.hasRole(Role.MANAGER)))
                         // rezervacije zahtijevaju prijavu
                         .requestMatchers("/api/reservations/**").authenticated()
                         .anyRequest().permitAll())

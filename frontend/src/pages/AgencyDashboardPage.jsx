@@ -1,84 +1,187 @@
-import { useState } from 'react';
-import {
-  periodMetrics,
-  topFiveActivities,
-  topFiveAddons,
-  tourPerformanceData,
-  initialEmployees,
-  registeredUsersDirectory,
-} from '../mock-backoffice-data.js';
+import { useEffect, useState } from 'react';
+
+import {getEmployees, findUserByEmail, changeRole  } from '../api/roleManagementClient.js';
+import { getStatistics, getExportUrl } from '../api/statisticsClient.js';
+
+ const ROLE_LABELS = {
+   guide: 'Guide',
+   organizer: 'Organizer',
+   admin: 'Administrator',
+   manager: 'Agency Manager',
+   client: 'Client',
+ };
+
+ const ROLE_BADGE = {
+   admin: 'badge-warning',
+   organizer: 'badge-info',
+   manager: 'badge-danger',
+   guide: 'badge-success',
+ };
+
+const EMPLOYEE_ROLE_OPTIONS = ['guide', 'organizer', 'admin'];
+
+function toIsoDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function currentMonthRange() {
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { from: toIsoDate(first), to: toIsoDate(last) };
+}
 
 function AgencyDashboardPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
-  const [employees, setEmployees] = useState(initialEmployees);
   const [notification, setNotification] = useState(null);
-
+  const [employees, setEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
+  const [employeesError, setEmployeesError] = useState(null);
   const [searchEmail, setSearchEmail] = useState('');
   const [foundUser, setFoundUser] = useState(null);
   const [searchError, setSearchError] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [savingNew, setSavingNew] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
+  const [dateFrom, setDateFrom] = useState(() => currentMonthRange().from);
+  const [dateTo, setDateTo] = useState(() => currentMonthRange().to);
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState(null);
 
+  useEffect(() => {
+    if (!dateFrom || !dateTo) return;
 
-  const handleSearchUser = (e) => {
-    e.preventDefault();
-    const query = searchEmail.trim().toLowerCase();
-    if (!query) {
-      setSearchError('Please enter a registered user email address.');
-      setFoundUser(null);
-      return;
-    }
+    let ignore = false;
 
-    const alreadyEmployee = employees.find((emp) => emp.email.toLowerCase() === query);
-    if (alreadyEmployee) {
-      setSearchError(`"${alreadyEmployee.name}" is already an employee with role: ${alreadyEmployee.role}.`);
-      setFoundUser(null);
-      return;
-    }
+    getStatistics(dateFrom, dateTo)
+      .then((data) => {
+        if (!ignore) setStats(data);
+      })
+      .catch((err) => {
+        if (!ignore) {
+          setStats(null);
+          setStatsError(err.message);
+        }
+      })
+      .finally(() => {
+        if (!ignore) setStatsLoading(false);
+      });
 
-    const user = registeredUsersDirectory.find((u) => u.email.toLowerCase() === query);
-    if (!user) {
-      setSearchError(`No registered user found with email "${searchEmail}".`);
-      setFoundUser(null);
-      return;
-    }
-
-    setFoundUser({
-      ...user,
-      selectedRole: 'Guide',
-    });
-    setSearchError(null);
-  };
-
-  const handleSaveNewEmployee = () => {
-    if (!foundUser) return;
-    const newEmp = {
-      id: `EMP-${Date.now()}`,
-      name: foundUser.name,
-      email: foundUser.email,
-      role: foundUser.selectedRole,
+    return () => {
+      ignore = true;
     };
-    setEmployees((prev) => [...prev, newEmp]);
-    setFoundUser(null);
-    setSearchEmail('');
+  }, [dateFrom, dateTo]);
+
+  const handleExport = () => {
+    window.location.href = getExportUrl(dateFrom, dateTo);
   };
 
-  const handleRoleChange = (employeeId, newRole) => {
+  const changeDateFrom = (value) => {
+    setDateFrom(value);
+    setStatsLoading(true);
+    setStatsError(null);
+  };
+
+  const changeDateTo = (value) => {
+    setDateTo(value);
+    setStatsLoading(true);
+    setStatsError(null);
+  };
+
+
+  useEffect(() => {
+   let cancelled = false;
+   getEmployees()
+     .then((list) => {
+       if (!cancelled) setEmployees(list);
+       if (!cancelled) setEmployees(list.filter((e) => e.role !== 'manager'));
+     })
+     .catch((err) => {
+       if (!cancelled) setEmployeesError(err.message);
+     })
+     .finally(() => {
+       if (!cancelled) setEmployeesLoading(false);
+     });
+   return () => {
+     cancelled = true;
+   };
+ }, []);
+
+ 
+ const handleSearchUser = async (e) => {
+  e.preventDefault();
+  const query = searchEmail.trim();
+  setFoundUser(null);
+
+   if (!query) {
+      setSearchError('Please enter a registered user email address.');
+      return;
+    }
+
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const user = await findUserByEmail(query);
+      if (!user) {
+        setSearchError(`No registered user found with email "${query}".`);
+        return;
+      }
+      if (user.isEmployee) {
+        setSearchError(`"${user.name}" is already an employee with role: ${ROLE_LABELS[user.role]}.`);
+        return;
+      }
+      setFoundUser({ ...user, selectedRole: 'guide' });
+    } catch (err) {
+      setSearchError(err.message);
+    } finally {
+      setSearching(false);
+    }
+ };
+  
+
+const handleSaveNewEmployee = async () => {
+    if (!foundUser) return;
+    setSavingNew(true);
+    try {
+      const saved = await changeRole(foundUser.id, foundUser.selectedRole);
+      setEmployees((prev) => [...prev, saved]);
+      setNotification(`${saved.name} added as ${ROLE_LABELS[saved.role]}.`);
+      setFoundUser(null);
+      setSearchEmail('');
+    } catch (err) {
+      setSearchError(err.message);
+    } finally {
+      setSavingNew(false);
+    }
+  };
+
+  const handleRoleChange = async (employeeId, newRole) => {
     const employee = employees.find((e) => e.id === employeeId);
     if (!employee) return;
 
-    if (!window.confirm(`Are you sure you want to change the role for ${employee.name} to ${newRole}?`)) {
+    if (!window.confirm(`Are you sure you want to change the role for ${employee.name} to ${ROLE_LABELS[newRole]}?`)) {
       return;
     }
 
-    if (newRole === 'Client') {
-      setEmployees((prev) => prev.filter((e) => e.id !== employeeId));
-    } else {
-      setEmployees((prev) =>
-        prev.map((e) => (e.id === employeeId ? { ...e, role: newRole } : e))
-      );
+   setUpdatingId(employeeId);
+    try {
+      const updated = await changeRole(employeeId, newRole);
+      if (updated.isEmployee) {
+        setEmployees((prev) => prev.map((e) => (e.id === employeeId ? updated : e)));
+        setNotification(`${updated.name} is now ${ROLE_LABELS[updated.role]}.`);
+      } else {
+        setEmployees((prev) => prev.filter((e) => e.id !== employeeId));
+        setNotification(`${updated.name} was revoked to Client.`);
+      }
+    } catch (err) {
+      window.alert(`Could not change role: ${err.message}`);
+    } finally {
+      setUpdatingId(null);
     }
   };
-
-  const currentMetrics = periodMetrics[selectedPeriod] || periodMetrics.month;
 
   return (
     <div className="page-container">
@@ -96,6 +199,8 @@ function AgencyDashboardPage() {
           <button
             type="button"
             className="btn btn-primary"
+            onClick={handleExport}
+            disabled={statsLoading || !!statsError}
             style={{
               whiteSpace: 'nowrap',
               display: 'inline-flex',
@@ -143,74 +248,114 @@ function AgencyDashboardPage() {
             </h3>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <label htmlFor="period-selector" className="form-label" style={{ margin: 0, fontWeight: 600 }}>
-              Selected Period:
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <label htmlFor="date-from" className="form-label" style={{ margin: 0, fontWeight: 600 }}>
+              From:
             </label>
-            <select
-              id="period-selector"
-              className="form-select"
-              style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-            >
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-              <option value="year">This Year</option>
-            </select>
+            <input
+              id="date-from"
+              type="date"
+              className="form-input"
+              style={{ width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.9rem' }}
+              value={dateFrom}
+              max={dateTo}
+              onChange={(e) => changeDateFrom(e.target.value)}
+            />
+            <label htmlFor="date-to" className="form-label" style={{ margin: 0, fontWeight: 600 }}>
+              To:
+            </label>
+            <input
+              id="date-to"
+              type="date"
+              className="form-input"
+              style={{ width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.9rem' }}
+              value={dateTo}
+              min={dateFrom}
+              onChange={(e) => changeDateTo(e.target.value)}
+            />
           </div>
         </div>
 
-        <div className="stat-card-grid" style={{ marginBottom: '1.25rem' }}>
-          <div className="stat-card">
-            <span className="stat-card-label">Total Bookings</span>
-            <div className="stat-card-value">{currentMetrics.totalBookings}</div>
-            <span className="stat-card-sub" style={{ color: '#16a34a' }}>
-              Confirmed reservations in selected period
-            </span>
+        {statsError && (
+          <div style={{ marginBottom: '1rem', color: '#b91c1c', fontSize: '0.875rem' }}>
+            Could not load statistics: {statsError}
           </div>
+        )}
 
-          <div className="stat-card">
-            <span className="stat-card-label">Generated Revenue</span>
-            <div className="stat-card-value">
-              €{currentMetrics.generatedRevenue.toLocaleString()}
+        {statsLoading && !stats && !statsError && (
+          <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.875rem' }}>
+            Loading statistics...
+          </div>
+        )}
+
+        {stats && (
+          <>
+            {stats.reservationCount === 0 && (
+              <div style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.875rem' }}>
+                No reservations in the selected period.
+              </div>
+            )}
+
+            <div className="stat-card-grid" style={{ marginBottom: '1.25rem' }}>
+              <div className="stat-card">
+                <span className="stat-card-label">Total Bookings</span>
+                <div className="stat-card-value">{stats.reservationCount}</div>
+                <span className="stat-card-sub" style={{ color: '#16a34a' }}>
+                  {stats.cancelledCount} cancelled in selected period
+                </span>
+              </div>
+
+              <div className="stat-card">
+                <span className="stat-card-label">Generated Revenue</span>
+                <div className="stat-card-value">
+                  €{Number(stats.revenue).toLocaleString()}
+                </div>
+                <span className="stat-card-sub" style={{ color: '#16a34a' }}>
+                  From non-cancelled reservations
+                </span>
+              </div>
+
+              <div className="stat-card" style={{ gridColumn: 'span 1' }}>
+                <span className="stat-card-label">Top 5 Most Popular Categories</span>
+                {stats.topCategories.length === 0 ? (
+                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No data</span>
+                ) : (
+                  <ol style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {stats.topCategories.map((cat) => (
+                      <li key={cat.id} style={{ fontSize: '0.85rem', color: '#1f2937' }}>
+                        <span style={{ fontWeight: 600 }}>{cat.name}</span>
+                        <span style={{ color: '#64748b', fontSize: '0.8rem' }}> ({cat.total} bookings)</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+
+              <div className="stat-card" style={{ gridColumn: 'span 1' }}>
+                <span className="stat-card-label">Top 5 Most Requested Add-ons</span>
+                {stats.topAdditionalServices.length === 0 ? (
+                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>No data</span>
+                ) : (
+                  <ol style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {stats.topAdditionalServices.map((addon) => (
+                      <li key={addon.id} style={{ fontSize: '0.85rem', color: '#1f2937' }}>
+                        <span style={{ fontWeight: 600 }}>{addon.name}</span>
+                        <span style={{ color: '#64748b', fontSize: '0.8rem' }}> ({addon.total} requests)</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
             </div>
-            <span className="stat-card-sub" style={{ color: '#16a34a' }}>
-              Gross bookings &amp; extras revenue
-            </span>
-          </div>
-
-          <div className="stat-card" style={{ gridColumn: 'span 1' }}>
-            <span className="stat-card-label">Top 5 Most Popular Activities</span>
-            <ol style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              {topFiveActivities.map((act) => (
-                <li key={act.rank} style={{ fontSize: '0.85rem', color: '#1f2937' }}>
-                  <span style={{ fontWeight: 600 }}>{act.title}</span>
-                  <span style={{ color: '#64748b', fontSize: '0.8rem' }}> ({act.bookingsCount} bookings)</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="stat-card" style={{ gridColumn: 'span 1' }}>
-            <span className="stat-card-label">Top 5 Most Requested Add-ons</span>
-            <ol style={{ margin: '0.5rem 0 0 0', paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              {topFiveAddons.map((addon) => (
-                <li key={addon.rank} style={{ fontSize: '0.85rem', color: '#1f2937' }}>
-                  <span style={{ fontWeight: 600 }}>{addon.name}</span>
-                  <span style={{ color: '#64748b', fontSize: '0.8rem' }}> ({addon.count} requests)</span>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </div>
+          </>
+        )}
       </section>
 
       <section style={{ marginBottom: '2.5rem' }}>
         <div className="section-header-row">
           <div>
             <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.25rem', color: '#1f2937' }}>
-              Occupancy Tracker (Per Time Slot)
+              Occupancy Tracker (Per Tour)
             </h3>
           </div>
         </div>
@@ -220,26 +365,29 @@ function AgencyDashboardPage() {
             <thead>
               <tr>
                 <th>Tour Name</th>
-                <th>Departure Slot</th>
-                <th>Category</th>
-                <th>Bookings / Capacity</th>
+                <th>Sessions</th>
+                <th>Booked / Capacity</th>
                 <th>Occupancy Rate (%)</th>
-                <th style={{ textAlign: 'right' }}>Generated Revenue (€)</th>
               </tr>
             </thead>
             <tbody>
-              {tourPerformanceData.map((slot) => {
-                const isHighOccupancy = slot.occupancyRate >= 80;
-                const isMediumOccupancy = slot.occupancyRate >= 60 && slot.occupancyRate < 80;
+              {(!stats || stats.tripOccupancy.length === 0) && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>
+                    {statsLoading ? 'Loading...' : 'No sessions in the selected period.'}
+                  </td>
+                </tr>
+              )}
+
+              {stats && stats.tripOccupancy.map((trip) => {
+                const isHighOccupancy = trip.occupancyPercent >= 80;
+                const isMediumOccupancy = trip.occupancyPercent >= 60 && trip.occupancyPercent < 80;
 
                 return (
-                  <tr key={slot.id}>
-                    <td style={{ fontWeight: 600 }}>{slot.title}</td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{slot.dateTime}</td>
-                    <td>
-                      <span className="badge badge-info">{slot.category}</span>
-                    </td>
-                    <td>{slot.bookingsCount} / {slot.capacity} seats</td>
+                  <tr key={trip.tripId}>
+                    <td style={{ fontWeight: 600 }}>{trip.name}</td>
+                    <td>{trip.sessionCount}</td>
+                    <td>{trip.bookedPeople} / {trip.capacity} seats</td>
                     <td>
                       <span
                         className={`badge ${
@@ -250,11 +398,8 @@ function AgencyDashboardPage() {
                             : 'badge-neutral'
                         }`}
                       >
-                        {slot.occupancyRate}%
+                        {trip.occupancyPercent}%
                       </span>
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
-                      €{slot.revenue.toLocaleString()}
                     </td>
                   </tr>
                 );
@@ -295,9 +440,9 @@ function AgencyDashboardPage() {
                 onChange={(e) => setSearchEmail(e.target.value)}
               />
             </div>
-            <button type="submit" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
-              Search User
-            </button>
+            <button type="submit" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }} disabled={searching}>
+            {searching ? 'Searching...' : 'Search User'}
+             </button>
           </form>
 
           {searchError && (
@@ -340,18 +485,18 @@ function AgencyDashboardPage() {
                     setFoundUser({ ...foundUser, selectedRole: e.target.value })
                   }
                 >
-                  <option value="Guide">Guide</option>
-                  <option value="Organizer">Organizer</option>
-                  <option value="Administrator">Administrator</option>
-                  <option value="Agency Manager">Agency Manager</option>
+                  {EMPLOYEE_ROLE_OPTIONS.map((role) => (
+                   <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+                     ))}
                 </select>
 
                 <button
                   type="button"
                   className="btn btn-sm btn-primary"
                   onClick={handleSaveNewEmployee}
+                  disabled={savingNew}
                 >
-                  Save
+                  {savingNew ? 'Saving...' : 'Save'}
                 </button>
                 <button
                   type="button"
@@ -360,6 +505,7 @@ function AgencyDashboardPage() {
                     setFoundUser(null);
                     setSearchEmail('');
                   }}
+                  disabled={savingNew}
                 >
                   Cancel
                 </button>
@@ -379,23 +525,36 @@ function AgencyDashboardPage() {
               </tr>
             </thead>
             <tbody>
+                {employeesLoading && (
+                   <tr>
+                     <td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>
+                     Loading employees...
+                     </td>
+                    </tr>
+                )}
+
+               {!employeesLoading && employeesError && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: '#b91c1c' }}>
+                  ✕ Could not load employees: {employeesError}
+                 </td>
+                </tr>
+   )}
+
+   {!employeesLoading && !employeesError && employees.length === 0 && (
+     <tr>
+       <td colSpan={4} style={{ textAlign: 'center', color: '#64748b' }}>
+         No employees yet.
+       </td>
+     </tr>
+   )}
               {employees.map((emp) => (
                 <tr key={emp.id}>
                   <td style={{ fontWeight: 600 }}>{emp.name}</td>
                   <td>{emp.email}</td>
                   <td>
-                    <span
-                      className={`badge ${
-                        emp.role === 'Administrator'
-                          ? 'badge-warning'
-                          : emp.role === 'Organizer'
-                          ? 'badge-info'
-                          : emp.role === 'Agency Manager'
-                          ? 'badge-danger'
-                          : 'badge-success'
-                      }`}
-                    >
-                      {emp.role}
+                    <span className={`badge ${ROLE_BADGE[emp.role] ?? 'badge-neutral'}`}>
+                   {ROLE_LABELS[emp.role] ?? emp.role}
                     </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
@@ -408,13 +567,13 @@ function AgencyDashboardPage() {
                         className="form-select"
                         style={{ width: 'auto', padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
                         value={emp.role}
+                        disabled={updatingId==emp.id}
                         onChange={(e) => handleRoleChange(emp.id, e.target.value)}
                       >
-                        <option value="Guide">Guide</option>
-                        <option value="Organizer">Organizer</option>
-                        <option value="Administrator">Administrator</option>
-                        <option value="Agency Manager">Agency Manager</option>
-                        <option value="Client">Revoke to Client</option>
+                      {EMPLOYEE_ROLE_OPTIONS.map((role) => (
+                         <option key={role} value={role}>{ROLE_LABELS[role]}</option>
+                       ))}
+                      <option value="client">Revoke to Client</option>
                       </select>
                     </div>
                   </td>

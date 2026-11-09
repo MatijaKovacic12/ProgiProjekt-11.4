@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { tours as initialTours } from '../mock-backoffice-data.js';
+import { useState, useEffect } from 'react';
+import { getTrips, createTrip, updateTrip, deleteTrip } from '../api/tripClient.js';
 import AdminReservations from '../components/AdminReservations.jsx';
 
 const AVAILABLE_ADDONS = [
@@ -21,7 +21,36 @@ const AVAILABLE_ADDONS = [
 ];
 
 function AdminManagementPage() {
-  const [toursList, setToursList] = useState(initialTours);
+const [toursList, setToursList] = useState([]);
+const [loadingTours, setLoadingTours] = useState(true);
+const [toursError, setToursError] = useState(null);
+
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getTrips()
+        .then((data) => {
+          if (isMounted) {
+            setToursList(data);
+            setToursError(null);
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            setToursError(err.message);
+          }
+        })
+        .finally(() => {
+          if (isMounted) {
+            setLoadingTours(false);
+          }
+        });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTourId, setEditingTourId] = useState(null);
@@ -140,52 +169,69 @@ function AdminManagementPage() {
     });
   };
 
-  const handleSaveTour = (e) => {
+  const handleSaveTour = async (e) => {
     e.preventDefault();
     if (!formData.title.trim()) {
       alert('Please enter a tour title.');
       return;
     }
 
-    if (editingTourId) {
-      setToursList((prev) =>
-        prev.map((t) =>
-          t.id === editingTourId
-            ? {
-                ...t,
-                ...formData,
-                price: Number(formData.price),
-                maxParticipants: Number(formData.maxParticipants),
-                requiredGuideCount: Number(formData.requiredGuideCount) || 1,
-                poiCoordinates: formData.poiCoordinates || '',
-                scheduledTimeSlots: formData.scheduledTimeSlots,
-              }
-            : t
-        )
-      );
-    } else {
-      const newTour = {
-        id: Date.now(),
-        ...formData,
-        price: Number(formData.price) || 25,
-        maxParticipants: Number(formData.maxParticipants) || 12,
-        requiredGuideCount: Number(formData.requiredGuideCount) || 1,
-        poiCoordinates: formData.poiCoordinates || '',
-        scheduledTimeSlots: formData.scheduledTimeSlots.length > 0
-          ? formData.scheduledTimeSlots
-          : ['2026-11-20 10:00'],
-      };
-      setToursList((prev) => [newTour, ...prev]);
-    }
+    const formattedSlots = formData.scheduledTimeSlots
+        .map((slot) => {
+          try {
+            const d = new Date(slot.replace(' ', 'T'));
+            return !isNaN(d.getTime()) ? d.toISOString() : null;
+          } catch {
+            return null;
+          }
+        })
+        .filter(Boolean);
 
-    handleCloseModal();
+    const payload = {
+      title: formData.title.trim(),
+      name: formData.title.trim(),
+      description: formData.description.trim(),
+      activityCategory: formData.activityCategory,
+      duration: formData.duration,
+      location: formData.departurePoint ? formData.departurePoint.split(',')[0].trim() : 'Zagreb',
+      departurePoint: formData.departurePoint.trim(),
+      price: Number(formData.price) || 0,
+      maxParticipants: Number(formData.maxParticipants) || 1,
+      requiredGuideCount: Number(formData.requiredGuideCount) || 1,
+      requiredGuides: Number(formData.requiredGuideCount) || 1,
+      poiCoordinates: formData.poiCoordinates || '',
+      scheduledTimeSlots: formattedSlots,
+      additionalServices: formData.additionalServices,
+    };
+
+    try {
+      if (editingTourId) {
+        const updated = await updateTrip(editingTourId, payload);
+        setToursList((prev) =>
+            prev.map((t) => (t.id === editingTourId ? updated : t))
+        );
+      } else {
+        const created = await createTrip(payload);
+        setToursList((prev) => [created, ...prev]);
+      }
+      handleCloseModal();
+    } catch (err) {
+      alert(`Greška pri spremanju izleta: ${err.message}`);
+    }
   };
 
-  const handleDeleteTour = (tourId) => {
+  const handleDeleteTour = async (tourId) => {
     if (!window.confirm('Are you sure you want to delete this tour?')) {
       return;
     }
-    setToursList((prev) => prev.filter((t) => t.id !== tourId));
+
+    try {
+      await deleteTrip(tourId);
+
+      setToursList((prev) => prev.filter((t) => t.id !== tourId));
+    } catch (err) {
+      alert(`Greška pri brisanju izleta: ${err.message}`);
+    }
   };
 
 
@@ -226,8 +272,28 @@ function AdminManagementPage() {
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {toursList.map((tour) => (
+            <tbody> {loadingTours && (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '1.5rem', color: '#6b7280' }}>
+                    Loading tours from backend...
+                  </td>
+                </tr>
+            )}
+            {toursError && !loadingTours && (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '1.5rem', color: '#b91c1c' }}>
+                    Error loading tours: {toursError}
+                  </td>
+                </tr>
+            )}
+            {!loadingTours && !toursError && toursList.length === 0 && (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '1.5rem', color: '#6b7280' }}>
+                    No tours found in database. Click &quot;Add New Tour&quot; to create one!
+                  </td>
+                </tr>
+            )}
+              {!loadingTours && !toursError && toursList.map((tour) => (
                 <tr key={tour.id}>
                   <td style={{ fontWeight: 600 }}>{tour.title}</td>
                   <td>
