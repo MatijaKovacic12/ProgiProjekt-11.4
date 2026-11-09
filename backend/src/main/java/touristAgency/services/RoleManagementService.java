@@ -69,6 +69,6 @@ public class RoleManagementService{
         }
 
         user.setRole(newRole);
-        return UserRoleResponse.from(users.save(user));
+        return UserRoleResponse.from(user);
     }
 }
