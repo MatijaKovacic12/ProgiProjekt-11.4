@@ -1,4 +1,6 @@
-import { useState, useId } from 'react';
+import { useState, useId, useEffect } from 'react';
+import { GetData } from '../api/baseApiClient.js';
+import { createReservation, formatDateTime } from '../api/reservationClient.js';
 
 const ADD_ON_PRICES = {
   "Audio guide": 8,
@@ -42,12 +44,34 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
   const participantsInputId = useId();
 
   const selectedTour = tours.find((t) => String(t.id) === String(tourId)) || tours[0];
+  const selectedTourId = selectedTour?.id;
 
-  const [selectedSlot, setSelectedSlot] = useState(
-    selectedTour?.scheduledTimeSlots?.[0] || ''
-  );
+  // Podaci s backenda (GET /api/trips/{id}): termini s ID-evima i usluge s ID-evima i cijenama,
+  // što je potrebno za stvarnu rezervaciju. undefined = učitavanje, null = nedostupno.
+  const [details, setDetails] = useState(undefined);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (selectedTourId === undefined) return undefined;
+    let cancelled = false;
+    GetData(`/trips/${selectedTourId}`)
+      .then((data) => {
+        if (!cancelled) setDetails(data);
+      })
+      .catch(() => {
+        if (!cancelled) setDetails(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTourId, reloadKey]);
+
+  const [selectedSlotKey, setSelectedSlotKey] = useState('');
   const [participants, setParticipants] = useState(1);
-  const [selectedAddons, setSelectedAddons] = useState([]);
+  const [selectedAddons, setSelectedAddons] = useState([]); // ključevi usluga (ID s backenda, ili ime kod mock podataka)
+  const [submitting, setSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState('');
+  const [confirmation, setConfirmation] = useState(null);
 
   if (!selectedTour) {
     return (
@@ -61,10 +85,51 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
     );
   }
 
+  const backendReady = Boolean(details);
+
+  // termini: s backenda (imaju ID) ili, dok nisu učitani, iz mock podataka (bez ID-a, rezervacija nije moguća)
+  const slotOptions = backendReady
+    ? (details.scheduledSessions || [])
+        .filter((session) => session.active !== false)
+        .map((session) => ({
+          key: String(session.id),
+          sessionId: session.id,
+          startTime: session.startTime,
+          availableSeats: session.availableSeats,
+        }))
+    : (selectedTour.scheduledTimeSlots || []).map((slot) => ({
+        key: slot,
+        sessionId: null,
+        startTime: slot,
+        availableSeats: null,
+      }));
+
+  const addonOptions = backendReady
+    ? (details.additionalServices || []).map((service) => ({
+        key: String(service.id),
+        id: service.id,
+        name: service.name,
+        price: Number(service.price),
+      }))
+    : (selectedTour.additionalServices || []).map((name) => ({
+        key: name,
+        id: null,
+        name,
+        price: ADD_ON_PRICES[name] || 10,
+      }));
+
+  const currentSlot =
+    slotOptions.find((slot) => slot.key === selectedSlotKey) || slotOptions[0] || null;
+
+  const maxForSlot =
+    currentSlot && currentSlot.availableSeats != null
+      ? Math.max(1, Math.min(selectedTour.maxParticipants, currentSlot.availableSeats))
+      : selectedTour.maxParticipants;
+
   // if service already selected -> remove it, else -> add it to list
-  const handleToggleAddon = (service) => {
+  const handleToggleAddon = (key) => {
     setSelectedAddons((prev) => // prev = selectedAddons
-      prev.includes(service) ? prev.filter((s) => s !== service) : [...prev, service]
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
   };
 
@@ -72,23 +137,53 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
     const val = parseInt(e.target.value, 10);
     if (isNaN(val) || val < 1) {
       setParticipants(1);
-    } else if (val > selectedTour.maxParticipants) {
-      setParticipants(selectedTour.maxParticipants);
+    } else if (val > maxForSlot) {
+      setParticipants(maxForSlot);
     } else {
       setParticipants(val);
     }
   };
 
-  const baseTotal = selectedTour.price * participants;
-  const addonsPerPerson = selectedAddons.reduce(
-    (sum, service) => sum + (ADD_ON_PRICES[service] || 10),
-    0
-  );
-  const addonsTotal = addonsPerPerson * participants;
-  const grandTotal = baseTotal + addonsTotal;
+  const participantCount = Math.min(participants, maxForSlot);
+  const baseTotal = selectedTour.price * participantCount;
+  const addonsPerPerson = addonOptions
+    .filter((addon) => selectedAddons.includes(addon.key))
+    .reduce((sum, addon) => sum + addon.price, 0);
+  const addonsTotal = addonsPerPerson * participantCount;
+  const grandTotal = Number((baseTotal + addonsTotal).toFixed(2));
 
-  const handleBookReservation = (e) => {
+  const canBook = backendReady && currentSlot !== null && currentSlot.sessionId !== null;
+
+  const handleBookReservation = async (e) => {
     e.preventDefault();
+    if (!canBook || submitting) return;
+
+    setSubmitting(true);
+    setBookingError('');
+    setConfirmation(null);
+    try {
+      const addonIds = addonOptions
+        .filter((addon) => selectedAddons.includes(addon.key))
+        .map((addon) => addon.id);
+
+      const reservation = await createReservation({
+        sessionId: currentSlot.sessionId,
+        participants: participantCount,
+        addonIds,
+      });
+
+      setConfirmation(reservation);
+      setSelectedAddons([]);
+      setParticipants(1);
+      setReloadKey((k) => k + 1); // osvježi broj slobodnih mjesta
+    } catch (err) {
+      setBookingError(err.message);
+      if (err.status === 409) {
+        setReloadKey((k) => k + 1); // npr. netko je u međuvremenu popunio termin
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -175,13 +270,15 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
               <select
                 id={slotSelectId}
                 className="form-select"
-                value={selectedSlot}
-                onChange={(e) => setSelectedSlot(e.target.value)}
-                disabled={isUnregistered}
+                value={currentSlot ? currentSlot.key : ''}
+                onChange={(e) => setSelectedSlotKey(e.target.value)}
+                disabled={isUnregistered || submitting}
               >
-                {selectedTour.scheduledTimeSlots.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {formatSlotDate(slot)}
+                {slotOptions.length === 0 && <option value="">No upcoming time slots</option>}
+                {slotOptions.map((slot) => (
+                  <option key={slot.key} value={slot.key}>
+                    {formatSlotDate(slot.startTime)}
+                    {slot.availableSeats != null ? ` — ${slot.availableSeats} seats left` : ''}
                   </option>
                 ))}
               </select>
@@ -193,7 +290,7 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
                   Number of Participants
                 </label>
                 <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                  Max: {selectedTour.maxParticipants}
+                  Max: {maxForSlot}
                 </span>
               </div>
               <input
@@ -201,23 +298,23 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
                 type="number"
                 className="form-input"
                 min="1"
-                max={selectedTour.maxParticipants}
-                value={participants}
+                max={maxForSlot}
+                value={participantCount}
                 onChange={handleParticipantsChange}
-                disabled={isUnregistered}
+                disabled={isUnregistered || submitting}
               />
             </div>
 
             <div style={{ marginBottom: '1.25rem' }}>
               <label className="form-label">Optional Add-on Services</label>
-              {selectedTour.additionalServices && selectedTour.additionalServices.length > 0 ? (
+              {addonOptions.length > 0 ? (
                 <div>
-                  {selectedTour.additionalServices.map((service) => {
-                    const price = ADD_ON_PRICES[service] || 10;
-                    const isChecked = selectedAddons.includes(service);
+                  {addonOptions.map((service) => {
+                    const price = service.price;
+                    const isChecked = selectedAddons.includes(service.key);
                     return (
                       <label
-                        key={service}
+                        key={service.key}
                         className="service-checkbox-item"
                         style={{ cursor: isUnregistered ? 'not-allowed' : 'pointer' }}
                       >
@@ -225,10 +322,10 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
                           <input
                             type="checkbox"
                             checked={isChecked}
-                            onChange={() => handleToggleAddon(service)}
-                            disabled={isUnregistered}
+                            onChange={() => handleToggleAddon(service.key)}
+                            disabled={isUnregistered || submitting}
                           />
-                          <span>{service}</span>
+                          <span>{service.name}</span>
                         </span>
                         <strong style={{ fontSize: '0.85rem', color: '#0369a1' }}>
                           +€{price} / person
@@ -246,12 +343,12 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
 
             <div className="price-summary-box">
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#4b5563', marginBottom: '0.35rem' }}>
-                <span>Base ({participants} × €{selectedTour.price}):</span>
+                <span>Base ({participantCount} × €{selectedTour.price}):</span>
                 <span>€{baseTotal}</span>
               </div>
               {selectedAddons.length > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#4b5563', marginBottom: '0.35rem' }}>
-                  <span>Add-ons ({participants} × €{addonsPerPerson}):</span>
+                  <span>Add-ons ({participantCount} × €{addonsPerPerson}):</span>
                   <span>€{addonsTotal}</span>
                 </div>
               )}
@@ -298,13 +395,44 @@ function TourDetailsPage({ navigate, tourId, tours = [], userRole = 'unregistere
                 </p>
               </div>
             ) : (
-              <button
-                type="submit"
-                className="btn btn-primary btn-block"
-                style={{ padding: '0.8rem 1rem', fontSize: '1.05rem' }}
-              >
-                Book / Confirm Reservation
-              </button>
+              <>
+                {bookingError && (
+                  <div className="error-banner" role="alert">
+                    {bookingError}
+                  </div>
+                )}
+                {confirmation && (
+                  <div className="toast-banner" role="status" style={{ display: 'block' }}>
+                    <strong>Reservation #{confirmation.id} confirmed!</strong>
+                    <div style={{ marginTop: '0.25rem' }}>
+                      {confirmation.tourTitle}, {formatDateTime(confirmation.startTime)},{' '}
+                      {confirmation.participants} person(s), total €{confirmation.totalPrice}.
+                      A confirmation e-mail is on its way.
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-secondary"
+                      style={{ marginTop: '0.5rem' }}
+                      onClick={() => navigate('/my-bookings')}
+                    >
+                      View My Bookings
+                    </button>
+                  </div>
+                )}
+                {details === null && (
+                  <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.85rem', color: '#b45309' }}>
+                    Booking is currently unavailable for this tour.
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-block"
+                  style={{ padding: '0.8rem 1rem', fontSize: '1.05rem' }}
+                  disabled={!canBook || submitting}
+                >
+                  {submitting ? 'Booking…' : 'Book / Confirm Reservation'}
+                </button>
+              </>
             )}
           </form>
         </aside>
