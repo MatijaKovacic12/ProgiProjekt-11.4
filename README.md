@@ -56,7 +56,7 @@ npm run dev
 
 **Adresa:** API na `http://localhost:8080` [PROVJERITI], web-klijent na `[adresa koju ispiše razvojni poslužitelj]`.
 
-**Konfiguracija:** Sve tajne učitavaju se iz varijabli okruženja i nikad se ne spremaju u repozitorij (NF-06). Popis varijabli nalazi se u `.env.example`: pristup bazi (URL, korisnik, lozinka), OAuth klijenti (client ID i secret za Microsoft, po želji Google — dobivaju se registracijom aplikacije kod pružatelja s redirect URI-jem `[…]/login/oauth2/code/{provider}`) i SMTP pristupni podaci. **[PROVJERITI točne nazive varijabli prema `application.properties`/`application.yml`.]**
+**Konfiguracija:** Sve tajne učitavaju se iz varijabli okruženja i nikad se ne spremaju u repozitorij (NF-06). Lokalno se upisuju u datoteku `backend/.env` (kopija predloška `backend/.env.example`; `.env` je u `.gitignore`), a na poslužitelju (npr. Render) kao varijable okruženja, koje imaju prednost. Varijable: `DB_URL`, `DB_TEST_URL` (baza za testove), `DB_USERNAME`, `DB_PASSWORD`; `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET` (dobivaju se registracijom aplikacije kod pružatelja s redirect URI-jem `[…]/login/oauth2/code/{provider}`); `MAIL_USERNAME`, `MAIL_PASSWORD` (SMTP); `FRONTEND_URL`. `DB_PASSWORD` je obavezna, ostale imaju zadane vrijednosti.
 
 Provjera: otvorite `http://localhost:8080/api/trips` — odgovor je JSON popis izleta (prazan popis `[]` ako baza nema podataka). Za detaljno postavljanje pogledajte [projektnu dokumentaciju](docs/Home.md).
 
