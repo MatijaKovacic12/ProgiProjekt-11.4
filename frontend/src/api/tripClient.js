@@ -39,6 +39,12 @@ export async function getTrips(criteria = {}) {
 }
 
 
+export async function getTripsPage(page = 0, size = 15) {
+    const res = await fetch(`/api/trips/paged?page=${page}&size=${size}`);
+    return handleResponse(res);
+}
+
+
 export async function getTripById(id) {
     const res = await fetch(`/api/trips/${id}`);
     return handleResponse(res);

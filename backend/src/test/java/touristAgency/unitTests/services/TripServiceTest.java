@@ -8,6 +8,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import touristAgency.dto.CreateTripRequest;
 import touristAgency.dto.CreateTripSessionRequest;
 import touristAgency.dto.PriceCalculationResponse;
@@ -143,6 +147,29 @@ class TripServiceTest {
         assertThat(item.getLocation()).isEqualTo("Zagreb, Croatia");
         assertThat(item.getDeparturePoint()).isEqualTo("Ban Jelačić Square, Zagreb");
         assertThat(item.getPrice()).isEqualByComparingTo("25.00");
+    }
+
+    @Test
+    @DisplayName("getTripsPage vraća traženu stranicu mapiranih izleta")
+    void getTripsPage_returnsPageOfTrips() {
+        Pageable pageable = PageRequest.of(1, 15);
+        Page<Trip> tripPage = new PageImpl<>(List.of(testTrip), pageable, 16);
+
+        when(tripRepository.findByActiveTrueOrderByNameAsc(pageable)).thenReturn(tripPage);
+        when(locationRepository.findFirstByTripIdAndType(100L, LocationType.MAIN))
+                .thenReturn(Optional.of(testMainLocation));
+        when(locationRepository.findFirstByTripIdAndType(100L, LocationType.DEPARTURE))
+                .thenReturn(Optional.of(testDepartureLocation));
+        when(tripSessionRepository.findByTripIdAndActiveTrueOrderByStartTimeAsc(100L))
+                .thenReturn(Collections.emptyList());
+
+        Page<TripSummaryResponse> result = tripService.getTripsPage(pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getTitle()).isEqualTo("Zagreb Historic Walking Tour");
+        assertThat(result.getNumber()).isEqualTo(1);
+        assertThat(result.getTotalElements()).isEqualTo(16);
+        assertThat(result.getTotalPages()).isEqualTo(2);
     }
 
     @Test

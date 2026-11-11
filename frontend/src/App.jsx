@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getTrips } from './api/tripClient.js';
+import { getTripsPage } from './api/tripClient.js';
 import LoginPage from './pages/LoginPage.jsx';
 import TourSearchPage from './pages/TourSearchPage.jsx';
 import TourDetailsPage from './pages/TourDetailsPage.jsx';
@@ -11,6 +11,8 @@ import OrganizerAssignmentPage from './pages/OrganizerAssignmentPage.jsx';
 import AgencyDashboardPage from './pages/AgencyDashboardPage.jsx';
 import { getCurrentUser, logout } from './api/authClient.js';
 
+const TOURS_PAGE_SIZE = 15;
+
 function App() {
   const [currentPath, setCurrentPath] = useState(
     () => (window.location.pathname === '/' ? '/tours' : window.location.pathname)
@@ -21,18 +23,40 @@ function App() {
 
   const [tours, setTours] = useState([]);
   const [loadingTours, setLoadingTours] = useState(true);
+  const [toursPage, setToursPage] = useState(0);
+  const [hasMoreTours, setHasMoreTours] = useState(false);
+  const [loadingMoreTours, setLoadingMoreTours] = useState(false);
 
   const loadTours = () => {
     setLoadingTours(true);
-    getTrips()
+    getTripsPage(0, TOURS_PAGE_SIZE)
         .then((data) => {
-          setTours(data);
+          setTours(data.content);
+          setToursPage(0);
+          setHasMoreTours(data.totalPages > 1);
         })
         .catch((err) => {
           console.error('Greška pri dohvaćanju izleta u App.jsx:', err);
         })
         .finally(() => {
           setLoadingTours(false);
+        });
+  };
+
+  const loadMoreTours = () => {
+    const nextPage = toursPage + 1;
+    setLoadingMoreTours(true);
+    getTripsPage(nextPage, TOURS_PAGE_SIZE)
+        .then((data) => {
+          setTours((prev) => [...prev, ...data.content]);
+          setToursPage(nextPage);
+          setHasMoreTours(nextPage + 1 < data.totalPages);
+        })
+        .catch((err) => {
+          console.error('Greška pri dohvaćanju dodatnih izleta:', err);
+        })
+        .finally(() => {
+          setLoadingMoreTours(false);
         });
   };
 
@@ -105,7 +129,16 @@ function App() {
 
   const renderRoute = () => {
     if (currentPath === '/tours' || currentPath === '/') {
-      return <TourSearchPage navigate={navigate} tours={tours} loading={loadingTours} />;
+      return (
+        <TourSearchPage
+          navigate={navigate}
+          tours={tours}
+          loading={loadingTours}
+          hasMore={hasMoreTours}
+          loadingMore={loadingMoreTours}
+          onShowMore={loadMoreTours}
+        />
+      );
     }
     if (currentPath === '/login') {
       return <LoginPage navigate={navigate} onSelectRole={handleSelectRole} />;

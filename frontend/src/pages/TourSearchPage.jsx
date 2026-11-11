@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-function TourSearchPage({ navigate, tours = [], loading = false }) {
+function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false, loadingMore = false, onShowMore }) {
     const [showFilters, setShowFilters] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
@@ -213,15 +213,19 @@ function TourSearchPage({ navigate, tours = [], loading = false }) {
             </div>
         )}
 
-      <div style={{ textAlign: 'center', marginTop: '2.5rem', marginBottom: '2rem' }}>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          style={{ minWidth: '180px' }}
-        >
-          Show more
-        </button>
-      </div>
+      {!loading && hasMore && (
+        <div style={{ textAlign: 'center', marginTop: '2.5rem', marginBottom: '2rem' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ minWidth: '180px' }}
+            onClick={onShowMore}
+            disabled={loadingMore}
+          >
+            {loadingMore ? 'Loading...' : 'Show more'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
