@@ -9,12 +9,17 @@ top to bottom direction
 
 actor "Korisnik\n(turist, administrator,\norganizator, vodič,\nvoditelj agencije)" as User
 
-component "Web-klijent\n(React SPA)" as Web
+component "Web-klijent (React SPA)" as Web {
+  component "Stranice i API klijenti\n(pages, api/*Client.js)" as Pages
+  component "Karta i položaj\n(Leaflet, Geolocation API)" <<planirano>> as MapUi
+}
 
 component "Poslužiteljska aplikacija (Spring Boot, modularni monolit)" as App {
   portin "REST API\n/api/**" as Api
+  portin "Statički sadržaj\n/, /tours, /assets/**" as Static
 
   component "Sigurnost\n(SecurityConfig,\nOAuth2LoginSuccessHandler)" as Sec
+  component "Posluživanje SPA-a\n(SpaWebConfig, static/)" as Spa
 
   package "Prezentacijski sloj (controllers)" {
     component "TripController" as TripApi
@@ -22,6 +27,7 @@ component "Poslužiteljska aplikacija (Spring Boot, modularni monolit)" as App {
     component "GuideController" as GuideApi
     component "AuthController\nRoleManagementController" as UserApi
     component "StatisticsController" as StatApi
+    component "CatalogController" as CatApi
     component "GlobalExceptionHandler" as Err
   }
 
@@ -31,6 +37,7 @@ component "Poslužiteljska aplikacija (Spring Boot, modularni monolit)" as App {
     component "GuideService" as GuideSvc
     component "AuthService\nCurrentUserService\nRoleManagementService" as UserSvc
     component "StatisticsService" as StatSvc
+    component "CatalogService" as CatSvc
     component "ReservationMailListener\nMailService" as Mail
   }
 
@@ -45,9 +52,12 @@ component "Pružatelj identiteta\n(Microsoft, Google)" <<vanjski sustav>> as IdP
 component "SMTP poslužitelj" <<vanjski sustav>> as SMTP
 component "Kartografske pločice" <<vanjski sustav, planirano>> as Tiles
 
-User --> Web : koristi
-Web --> Api : HTTPS / JSON
-Web ..> Tiles : HTTPS\n«planirano»
+User --> Pages : koristi
+Pages --> Api : HTTPS / JSON
+Pages ..> Static : HTTPS\n(učitavanje klijenta)
+Static --> Spa
+MapUi ..> Tiles : HTTPS\n«planirano»
+MapUi ..> Api : GET /api/trips/{id}\n(znamenitosti)\n«planirano»
 
 Api --> Sec
 Sec <--> IdP : OAuth 2.0 / OIDC\n(Authorization Code)
@@ -56,6 +66,7 @@ Sec --> ResApi
 Sec --> GuideApi
 Sec --> UserApi
 Sec --> StatApi
+Sec --> CatApi
 
 TripApi --> TripSvc
 ResApi --> ResSvc
@@ -64,12 +75,14 @@ GuideApi --> GuideSvc
 GuideApi --> UserSvc : provjera uloge
 UserApi --> UserSvc
 StatApi --> StatSvc
+CatApi --> CatSvc
 
 TripSvc --> Repo
 ResSvc --> Repo
 GuideSvc --> Repo
 UserSvc --> Repo
 StatSvc --> Repo
+CatSvc --> Repo
 
 ResSvc ..> Mail : aplikacijski događaj\n(ReservationConfirmed/\nCancelledEvent)
 Mail --> SMTP : SMTP
