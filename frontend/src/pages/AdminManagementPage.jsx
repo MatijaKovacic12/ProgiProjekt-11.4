@@ -1,24 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getTripsPage, createTrip, updateTrip, deleteTrip } from '../api/tripClient.js';
+import { getCategories, getAdditionalServices } from '../api/catalogClient.js';
 import AdminReservations from '../components/AdminReservations.jsx';
-
-const AVAILABLE_ADDONS = [
-  'Audio guide',
-  'Museum entry ticket',
-  'Transport from Zagreb',
-  'Packed lunch',
-  'Hiking pole rental',
-  'Bicycle rental',
-  'Helmet rental',
-  'Transport from Omiš',
-  'Wetsuit rental',
-  'Waterproof bag rental',
-  'Snorkelling equipment rental',
-  'Lunch',
-  'City walls entry ticket',
-  'Local food tasting',
-  'Kayak rental',
-];
 
 const PAGE_SIZE = 10;
 
@@ -29,6 +12,31 @@ const [toursError, setToursError] = useState(null);
 const [page, setPage] = useState(0);
 const [totalPages, setTotalPages] = useState(0);
 const [reloadKey, setReloadKey] = useState(0);
+const [categories, setCategories] = useState([]);
+const [availableAddons, setAvailableAddons] = useState([]);
+const [catalogError, setCatalogError] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    Promise.all([getCategories(), getAdditionalServices()])
+        .then(([categoryData, addonData]) => {
+          if (isMounted) {
+            setCategories(categoryData);
+            setAvailableAddons(addonData);
+            setCatalogError(null);
+          }
+        })
+        .catch((err) => {
+          if (isMounted) {
+            setCatalogError(err.message);
+          }
+        });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
 
   useEffect(() => {
@@ -73,7 +81,7 @@ const [reloadKey, setReloadKey] = useState(0);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    activityCategory: 'City tour',
+    categoryId: '',
     duration: '',
     departurePoint: '',
     price: '',
@@ -81,7 +89,7 @@ const [reloadKey, setReloadKey] = useState(0);
     requiredGuideCount: 1,
     poiCoordinates: '',
     scheduledTimeSlots: [],
-    additionalServices: [],
+    additionalServiceIds: [],
   });
 
   const [slotPicker, setSlotPicker] = useState({
@@ -99,7 +107,7 @@ const [reloadKey, setReloadKey] = useState(0);
     setFormData({
       title: '',
       description: '',
-      activityCategory: 'City tour',
+      categoryId: categories.length > 0 ? String(categories[0].id) : '',
       duration: '3 hours',
       departurePoint: 'Main Square, Zagreb',
       price: 35,
@@ -107,7 +115,7 @@ const [reloadKey, setReloadKey] = useState(0);
       requiredGuideCount: 1,
       poiCoordinates: '45.8131, 15.9775',
       scheduledTimeSlots: ['2026-11-20 10:00', '2026-11-27 10:00'],
-      additionalServices: ['Audio guide'],
+      additionalServiceIds: [],
     });
     setSlotPicker({
       year: '2026',
@@ -130,7 +138,7 @@ const [reloadKey, setReloadKey] = useState(0);
     setFormData({
       title: tour.title || '',
       description: tour.description || '',
-      activityCategory: tour.activityCategory || 'City tour',
+      categoryId: tour.categoryId != null ? String(tour.categoryId) : '',
       duration: tour.duration || '',
       departurePoint: tour.departurePoint || '',
       price: tour.price || 0,
@@ -138,7 +146,7 @@ const [reloadKey, setReloadKey] = useState(0);
       requiredGuideCount: tour.requiredGuideCount || 1,
       poiCoordinates: tour.poiCoordinates || '',
       scheduledTimeSlots: existingSlots,
-      additionalServices: tour.additionalServices || [],
+      additionalServiceIds: tour.additionalServiceIds || [],
     });
     setSlotPicker({
       year: '2026',
@@ -173,14 +181,14 @@ const [reloadKey, setReloadKey] = useState(0);
     }));
   };
 
-  const handleToggleAddon = (addon) => {
+  const handleToggleAddon = (addonId) => {
     setFormData((prev) => {
-      const exists = prev.additionalServices.includes(addon);
+      const exists = prev.additionalServiceIds.includes(addonId);
       return {
         ...prev,
-        additionalServices: exists
-          ? prev.additionalServices.filter((a) => a !== addon)
-          : [...prev.additionalServices, addon],
+        additionalServiceIds: exists
+          ? prev.additionalServiceIds.filter((id) => id !== addonId)
+          : [...prev.additionalServiceIds, addonId],
       };
     });
   };
@@ -189,6 +197,10 @@ const [reloadKey, setReloadKey] = useState(0);
     e.preventDefault();
     if (!formData.title.trim()) {
       alert('Please enter a tour title.');
+      return;
+    }
+    if (!formData.categoryId) {
+      alert('Please select an activity category.');
       return;
     }
 
@@ -207,7 +219,7 @@ const [reloadKey, setReloadKey] = useState(0);
       title: formData.title.trim(),
       name: formData.title.trim(),
       description: formData.description.trim(),
-      activityCategory: formData.activityCategory,
+      categoryId: Number(formData.categoryId),
       duration: formData.duration,
       location: formData.departurePoint ? formData.departurePoint.split(',')[0].trim() : 'Zagreb',
       departurePoint: formData.departurePoint.trim(),
@@ -217,15 +229,13 @@ const [reloadKey, setReloadKey] = useState(0);
       requiredGuides: Number(formData.requiredGuideCount) || 1,
       poiCoordinates: formData.poiCoordinates || '',
       scheduledTimeSlots: formattedSlots,
-      additionalServices: formData.additionalServices,
+      additionalServiceIds: formData.additionalServiceIds,
     };
 
     try {
       if (editingTourId) {
-        const updated = await updateTrip(editingTourId, payload);
-        setToursList((prev) =>
-            prev.map((t) => (t.id === editingTourId ? updated : t))
-        );
+        await updateTrip(editingTourId, payload);
+        reloadTours();
       } else {
         await createTrip(payload);
         reloadTours();
@@ -445,16 +455,23 @@ const [reloadKey, setReloadKey] = useState(0);
                     <select
                       id="field-tour-category"
                       className="form-select"
-                      value={formData.activityCategory}
-                      onChange={(e) => setFormData({ ...formData, activityCategory: e.target.value })}
+                      value={formData.categoryId}
+                      onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
                     >
-                      <option value="City tour">City tour</option>
-                      <option value="Hiking">Hiking</option>
-                      <option value="Cycling">Cycling</option>
-                      <option value="Rafting">Rafting</option>
-                      <option value="Boat trip">Boat trip</option>
-                      <option value="Kayaking">Kayaking</option>
+                      <option value="" disabled>
+                        Select a category
+                      </option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={String(category.id)}>
+                          {category.name}
+                        </option>
+                      ))}
                     </select>
+                    {catalogError && (
+                      <p style={{ color: '#b91c1c', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                        Error loading categories and services: {catalogError}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -712,9 +729,9 @@ const [reloadKey, setReloadKey] = useState(0);
                     Add-on Services (Optional extras available for this tour)
                   </label>
                   <div className="form-checkbox-group">
-                    {AVAILABLE_ADDONS.map((addon) => (
+                    {availableAddons.map((addon) => (
                       <label
-                        key={addon}
+                        key={addon.id}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -726,10 +743,10 @@ const [reloadKey, setReloadKey] = useState(0);
                       >
                         <input
                           type="checkbox"
-                          checked={formData.additionalServices.includes(addon)}
-                          onChange={() => handleToggleAddon(addon)}
+                          checked={formData.additionalServiceIds.includes(addon.id)}
+                          onChange={() => handleToggleAddon(addon.id)}
                         />
-                        <span>{addon}</span>
+                        <span>{addon.name} (€{addon.price})</span>
                       </label>
                     ))}
                   </div>

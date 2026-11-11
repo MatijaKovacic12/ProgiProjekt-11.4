@@ -30,5 +30,6 @@ public class TripSummaryResponse {
     private String departurePoint; // Mjesto polaska (npr. "Ban Jelačić Square")
     private boolean active;
     private List<String> additionalServices;
+    private List<Long> additionalServiceIds;
     private List<String> scheduledTimeSlots;
 }

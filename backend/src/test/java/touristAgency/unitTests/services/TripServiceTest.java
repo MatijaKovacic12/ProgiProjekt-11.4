@@ -286,6 +286,69 @@ class TripServiceTest {
     }
 
     @Test
+    @DisplayName("createTrip baca BadRequestException kada kategorija s danim ID-jem ne postoji")
+    void createTrip_unknownCategoryId_throwsException() {
+        CreateTripRequest request = CreateTripRequest.builder()
+                .title("Tour")
+                .description("Description")
+                .categoryId(99L)
+                .price(new BigDecimal("10.00"))
+                .maxParticipants(5)
+                .build();
+
+        when(categoryRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> tripService.createTrip(request))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("99");
+
+        verify(tripRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createTrip ne stvara novu kategoriju kada naziv kategorije ne postoji")
+    void createTrip_unknownCategoryName_throwsExceptionAndDoesNotCreateCategory() {
+        CreateTripRequest request = CreateTripRequest.builder()
+                .title("Tour")
+                .description("Description")
+                .activityCategory("Paragliding")
+                .price(new BigDecimal("10.00"))
+                .maxParticipants(5)
+                .build();
+
+        when(categoryRepository.findByNameIgnoreCase("Paragliding")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> tripService.createTrip(request))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Paragliding");
+
+        verify(categoryRepository, never()).save(any());
+        verify(tripRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createTrip baca BadRequestException kada neka dodatna usluga ne postoji")
+    void createTrip_unknownAdditionalServiceId_throwsException() {
+        CreateTripRequest request = CreateTripRequest.builder()
+                .title("Tour")
+                .description("Description")
+                .categoryId(1L)
+                .price(new BigDecimal("10.00"))
+                .maxParticipants(5)
+                .additionalServiceIds(List.of(10L, 77L))
+                .build();
+
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(testCategory));
+        when(additionalServiceRepository.findAllById(any())).thenReturn(List.of(testService));
+
+        assertThatThrownBy(() -> tripService.createTrip(request))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("[77]");
+
+        verify(tripRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("updateTrip ažurira podatke izleta")
     void updateTrip_whenValid_updatesAndReturnsTrip() {
         UpdateTripRequest updateRequest = UpdateTripRequest.builder()

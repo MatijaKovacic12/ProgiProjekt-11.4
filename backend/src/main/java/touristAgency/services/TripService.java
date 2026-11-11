@@ -531,15 +531,11 @@ public class TripService {
     private Category resolveCategory(Long categoryId, String categoryName) {
         if (categoryId != null) {
             return categoryRepository.findById(categoryId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Category with id " + categoryId + " not found"));
+                    .orElseThrow(() -> new BadRequestException("Category with id " + categoryId + " does not exist"));
         }
         if (categoryName != null && !categoryName.isBlank()) {
             return categoryRepository.findByNameIgnoreCase(categoryName.trim())
-                    .orElseGet(() -> {
-                        Category newCat = new Category();
-                        newCat.setName(categoryName.trim());
-                        return categoryRepository.save(newCat);
-                    });
+                    .orElseThrow(() -> new BadRequestException("Category '" + categoryName.trim() + "' does not exist"));
         }
         throw new BadRequestException("Category id or category name must be provided");
     }
@@ -547,11 +543,19 @@ public class TripService {
     private Set<AdditionalService> resolveAdditionalServices(List<Long> serviceIds, List<String> serviceNames) {
         Set<AdditionalService> services = new HashSet<>();
         if (serviceIds != null && !serviceIds.isEmpty()) {
-            services.addAll(additionalServiceRepository.findAllById(serviceIds));
+            Set<Long> requestedIds = new HashSet<>(serviceIds);
+            List<AdditionalService> found = additionalServiceRepository.findAllById(requestedIds);
+            if (found.size() != requestedIds.size()) {
+                Set<Long> foundIds = found.stream().map(AdditionalService::getId).collect(Collectors.toSet());
+                List<Long> missing = requestedIds.stream().filter(id -> !foundIds.contains(id)).sorted().toList();
+                throw new BadRequestException("Additional services with ids " + missing + " do not exist");
+            }
+            services.addAll(found);
         }
         if (serviceNames != null && !serviceNames.isEmpty()) {
             for (String name : serviceNames) {
-                additionalServiceRepository.findByNameIgnoreCase(name.trim()).ifPresent(services::add);
+                services.add(additionalServiceRepository.findByNameIgnoreCase(name.trim())
+                        .orElseThrow(() -> new BadRequestException("Additional service '" + name.trim() + "' does not exist")));
             }
         }
         return services;

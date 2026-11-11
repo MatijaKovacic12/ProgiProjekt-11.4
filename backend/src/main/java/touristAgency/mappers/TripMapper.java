@@ -63,6 +63,9 @@ public class TripMapper {
         List<String> services = trip.getAdditionalServices() != null
                 ? trip.getAdditionalServices().stream().map(AdditionalService::getName).sorted().collect(Collectors.toList())
                 : Collections.emptyList();
+        List<Long> serviceIds = trip.getAdditionalServices() != null
+                ? trip.getAdditionalServices().stream().map(AdditionalService::getId).sorted().collect(Collectors.toList())
+                : Collections.emptyList();
 
         return TripSummaryResponse.builder()
                 .id(trip.getId())
@@ -82,6 +85,7 @@ public class TripMapper {
                 .departurePoint(departurePoint)
                 .active(trip.isActive())
                 .additionalServices(services)
+                .additionalServiceIds(serviceIds)
                 .scheduledTimeSlots(timeSlots != null ? timeSlots : Collections.emptyList())
                 .build();
     }

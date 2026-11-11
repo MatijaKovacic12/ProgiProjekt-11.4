@@ -1,10 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getCategories } from '../api/catalogClient.js';
 
 function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false, loadingMore = false, onShowMore }) {
     const [showFilters, setShowFilters] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('');
     const [maxPrice, setMaxPrice] = useState('');
+    const [categories, setCategories] = useState([]);
+
+    useEffect(() => {
+        let isMounted = true;
+        getCategories()
+            .then((data) => {
+                if (isMounted) setCategories(data);
+            })
+            .catch(() => {
+                if (isMounted) setCategories([]);
+            });
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     const filteredTours = tours.filter((tour) => {
         if (searchTerm.trim()) {
@@ -14,7 +30,7 @@ function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false
             const matchLoc = tour.location && tour.location.toLowerCase().includes(q);
             if (!matchTitle && !matchDesc && !matchLoc) return false;
         }
-        if (selectedCategory && tour.activityCategory !== selectedCategory) {
+        if (selectedCategory && String(tour.categoryId) !== selectedCategory) {
             return false;
         }
         if (maxPrice && Number(tour.price) > Number(maxPrice)) {
@@ -95,12 +111,11 @@ function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false
                     onChange={(e) => setSelectedCategory(e.target.value)}
                 >
                     <option value="">All categories</option>
-                    <option value="City tour">City tour</option>
-                    <option value="Hiking">Hiking</option>
-                    <option value="Cycling">Cycling</option>
-                    <option value="Rafting">Rafting</option>
-                    <option value="Boat trip">Boat trip</option>
-                    <option value="Kayaking">Kayaking</option>
+                    {categories.map((category) => (
+                        <option key={category.id} value={String(category.id)}>
+                            {category.name}
+                        </option>
+                    ))}
                 </select>
             </div>
 
