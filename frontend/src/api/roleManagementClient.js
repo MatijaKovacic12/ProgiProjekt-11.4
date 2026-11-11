@@ -1,4 +1,4 @@
-const BASE = '/api/admin/employees'
+const BASE = '/api/manager/employees'
 
 const ROLE_MAP = {
     USER: 'client',

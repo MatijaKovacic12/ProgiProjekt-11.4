@@ -11,7 +11,7 @@ import java.util.List;
 
 
 @RestController
-@RequestMapping(value = "/api/admin/employees",produces = MediaType.APPLICATION_JSON_VALUE)
+@RequestMapping(value = "/api/manager/employees",produces = MediaType.APPLICATION_JSON_VALUE)
 public class RoleManagementController {
 
     private final RoleManagementService roleManagementService;
