@@ -1,5 +1,7 @@
 package touristAgency.services;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import touristAgency.dto.AdditionalServiceResponse;
@@ -74,6 +76,13 @@ public class TripService {
         return trips.stream()
                 .map(this::mapToSummaryResponse)
                 .collect(Collectors.toList());
+    }
+
+
+    @Transactional(readOnly = true)
+    public Page<TripSummaryResponse> getTripsPage(Pageable pageable) {
+        Page<Trip> trips = tripRepository.findByActiveTrueOrderByNameAsc(pageable);
+        return trips.map(this::mapToSummaryResponse);
     }
 
 

@@ -1,11 +1,13 @@
 package touristAgency.repositories;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import touristAgency.models.Trip;
 
+import org.springframework.data.domain.Pageable;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -18,6 +20,9 @@ public interface TripRepository extends JpaRepository<Trip,Long> {
 
     @EntityGraph(attributePaths = "category")
     List<Trip> findByActiveTrueOrderByNameAsc();
+
+    @EntityGraph(attributePaths = "category")
+    Page<Trip> findByActiveTrueOrderByNameAsc(Pageable pageable);
 
     default List<Trip> search(OffsetDateTime now,
                               OffsetDateTime dateFrom,

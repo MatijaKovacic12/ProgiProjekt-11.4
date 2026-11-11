@@ -7,6 +7,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -22,8 +25,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -65,6 +67,34 @@ class TripControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(1L))
                 .andExpect(jsonPath("$[0].title").value("Zagreb Tour"));
+    }
+
+    @Test
+    @DisplayName("GET /api/trips/paged vraća 200 OK i traženu stranicu izleta")
+    void getTripsPage_returns200AndPage() throws Exception {
+        TripSummaryResponse trip = TripSummaryResponse.builder()
+                .id(1L)
+                .title("Zagreb Tour")
+                .price(new BigDecimal("25.00"))
+                .build();
+        Pageable pageable = PageRequest.of(1, 15);
+
+        when(tripService.getTripsPage(pageable)).thenReturn(new PageImpl<>(List.of(trip), pageable, 16));
+
+        mockMvc.perform(get("/api/trips/paged").param("page", "1").param("size", "15"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].title").value("Zagreb Tour"))
+                .andExpect(jsonPath("$.totalElements").value(16))
+                .andExpect(jsonPath("$.totalPages").value(2));
+    }
+
+    @Test
+    @DisplayName("GET /api/trips/paged s negativnom stranicom vraća 400")
+    void getTripsPage_negativePage_returns400() throws Exception {
+        mockMvc.perform(get("/api/trips/paged").param("page", "-1"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(tripService);
     }
 
     @Test

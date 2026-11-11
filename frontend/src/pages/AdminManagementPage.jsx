@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getTrips, createTrip, updateTrip, deleteTrip } from '../api/tripClient.js';
+import { getTripsPage, createTrip, updateTrip, deleteTrip } from '../api/tripClient.js';
 import AdminReservations from '../components/AdminReservations.jsx';
 
 const AVAILABLE_ADDONS = [
@@ -20,19 +20,25 @@ const AVAILABLE_ADDONS = [
   'Kayak rental',
 ];
 
+const PAGE_SIZE = 10;
+
 function AdminManagementPage() {
 const [toursList, setToursList] = useState([]);
 const [loadingTours, setLoadingTours] = useState(true);
 const [toursError, setToursError] = useState(null);
+const [page, setPage] = useState(0);
+const [totalPages, setTotalPages] = useState(0);
+const [reloadKey, setReloadKey] = useState(0);
 
 
   useEffect(() => {
     let isMounted = true;
 
-    getTrips()
+    getTripsPage(page, PAGE_SIZE)
         .then((data) => {
           if (isMounted) {
-            setToursList(data);
+            setToursList(data.content);
+            setTotalPages(data.totalPages);
             setToursError(null);
           }
         })
@@ -50,7 +56,17 @@ const [toursError, setToursError] = useState(null);
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [page, reloadKey]);
+
+  const goToPage = (newPage) => {
+    setLoadingTours(true);
+    setPage(newPage);
+  };
+
+  const reloadTours = () => {
+    setLoadingTours(true);
+    setReloadKey((k) => k + 1);
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTourId, setEditingTourId] = useState(null);
@@ -211,8 +227,8 @@ const [toursError, setToursError] = useState(null);
             prev.map((t) => (t.id === editingTourId ? updated : t))
         );
       } else {
-        const created = await createTrip(payload);
-        setToursList((prev) => [created, ...prev]);
+        await createTrip(payload);
+        reloadTours();
       }
       handleCloseModal();
     } catch (err) {
@@ -228,7 +244,11 @@ const [toursError, setToursError] = useState(null);
     try {
       await deleteTrip(tourId);
 
-      setToursList((prev) => prev.filter((t) => t.id !== tourId));
+      if (toursList.length === 1 && page > 0) {
+        goToPage(page - 1);
+      } else {
+        reloadTours();
+      }
     } catch (err) {
       alert(`Greška pri brisanju izleta: ${err.message}`);
     }
@@ -272,7 +292,7 @@ const [toursError, setToursError] = useState(null);
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
-            <tbody> {loadingTours && (
+            <tbody style={{ opacity: loadingTours ? 0.5 : 1 }}> {loadingTours && toursList.length === 0 && (
                 <tr>
                   <td colSpan="7" style={{ textAlign: 'center', padding: '1.5rem', color: '#6b7280' }}>
                     Loading tours from backend...
@@ -293,7 +313,7 @@ const [toursError, setToursError] = useState(null);
                   </td>
                 </tr>
             )}
-              {!loadingTours && !toursError && toursList.map((tour) => (
+              {!toursError && toursList.map((tour) => (
                 <tr key={tour.id}>
                   <td style={{ fontWeight: 600 }}>{tour.title}</td>
                   <td>
@@ -334,6 +354,37 @@ const [toursError, setToursError] = useState(null);
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '0.75rem',
+              marginTop: '0.75rem',
+            }}
+          >
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => goToPage(page - 1)}
+              disabled={page === 0 || loadingTours}
+            >
+              ← Previous
+            </button>
+            <span style={{ fontSize: '0.85rem', color: '#475569' }}>
+              Page {page + 1} of {totalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-sm btn-secondary"
+              onClick={() => goToPage(page + 1)}
+              disabled={page + 1 >= totalPages || loadingTours}
+            >
+              Next →
+            </button>
+          </div>
+        )}
       </section>
 
       <AdminReservations />

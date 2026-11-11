@@ -1,6 +1,9 @@
 package touristAgency.controllers;
 
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import touristAgency.dto.CreateTripRequest;
 import touristAgency.dto.CreateTripSessionRequest;
 import touristAgency.dto.LocationResponse;
@@ -63,6 +67,19 @@ public class TripController {
                 : tripService.getAllTrips();
 
         return ResponseEntity.ok(trips);
+    }
+
+
+    @GetMapping("/paged")
+    public ResponseEntity<Page<TripSummaryResponse>> getTripsPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "15") int size) {
+
+        if (page < 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page must be greater than or equal to 0");
+        if (size <= 0 || size > 100) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Size must be between 1 and 100");
+
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(tripService.getTripsPage(pageable));
     }
 
     @GetMapping("/{id}")
