@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 @Entity
 @Table(name = "rezervacija_usluga")
@@ -37,5 +38,21 @@ public class ReservationAdditionalService {
         this.additionalService = additionalService;
         this.quantity = quantity;
         this.unitPrice = additionalService.getPrice();
+    }
+
+    // Jednakost po usluzi: id (EmbeddedId) je prazan dok se rezervacija ne spremi, pa se ne smije koristiti ovdje.
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ReservationAdditionalService other)) return false;
+        Long a = additionalService == null ? null : additionalService.getId();
+        Long b = other.additionalService == null ? null : other.additionalService.getId();
+        return a != null && a.equals(b);
+    }
+
+    @Override
+    public int hashCode() {
+        Long a = additionalService == null ? null : additionalService.getId();
+        return Objects.hashCode(a);
     }
 }

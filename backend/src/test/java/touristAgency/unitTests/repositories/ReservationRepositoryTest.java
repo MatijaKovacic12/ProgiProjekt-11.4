@@ -1,6 +1,8 @@
 package touristAgency.unitTests.repositories;
 
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import touristAgency.models.Reservation;
@@ -19,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ReservationRepositoryTest extends RepositoryTestBase {
     private static final PageRequest PAGE = PageRequest.of(0, 20);
+
+    @Autowired private EntityManager em;
 
     private OffsetDateTime from() { return now.minusDays(10); }
     private OffsetDateTime to()   { return now.plusDays(10); }
@@ -58,7 +62,33 @@ public class ReservationRepositoryTest extends RepositoryTestBase {
 
         assertEquals("Plitvice", r.getTripSession().getTrip().getName());
         assertEquals(1, r.getReservationAdditionalServices().size());
-        assertEquals("Prijevoz", r.getReservationAdditionalServices().get(0).getAdditionalService().getName());
+        assertEquals("Prijevoz", r.getReservationAdditionalServices().iterator().next().getAdditionalService().getName());
+    }
+
+    @Test
+    void findByCustomerId_doesNotDuplicateAddonsWhenTripHasSeveralLocations() {
+        // trip ima 4 lokacije; EntityGraph dohvaća lokacije i usluge zajedno (kartezijev produkt)
+        upcomingRes.addAdditionalService(gear, 7);
+        reservations.saveAndFlush(upcomingRes);
+        em.clear();
+
+        Reservation r = reservations.findByCustomerIdOrderByCreatedAtDesc(customer.getId()).stream()
+                .filter(x -> x.getId().equals(upcomingRes.getId())).findFirst().orElseThrow();
+
+        assertEquals(2, r.getReservationAdditionalServices().size());
+        assertEquals(2, r.getReservationAdditionalServices().stream()
+                .map(x -> x.getAdditionalService().getName()).distinct().count());
+    }
+
+    @Test
+    void findDetailsById_doesNotDuplicateAddonsWhenTripHasSeveralLocations() {
+        upcomingRes.addAdditionalService(gear, 7);
+        reservations.saveAndFlush(upcomingRes);
+        em.clear();
+
+        Reservation r = reservations.findDetailsById(upcomingRes.getId()).orElseThrow();
+
+        assertEquals(2, r.getReservationAdditionalServices().size());
     }
 
     @Test

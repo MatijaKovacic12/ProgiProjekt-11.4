@@ -6,8 +6,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "rezervacija")
@@ -34,7 +34,9 @@ public class Reservation extends BaseEntity{
     private BigDecimal totalPrice;
 
     @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ReservationAdditionalService> reservationAdditionalServices = new ArrayList<>();
+    // Set (ne List): EntityGraph dohvaća istodobno i trip.locations i usluge, a List ("bag") bi se zbog
+    // kartezijeva produkta popunio duplikatima.
+    private Set<ReservationAdditionalService> reservationAdditionalServices = new LinkedHashSet<>();
 
     public void addAdditionalService(AdditionalService additionalService, int quantity) {
         reservationAdditionalServices.add(new ReservationAdditionalService(this, additionalService, quantity));
