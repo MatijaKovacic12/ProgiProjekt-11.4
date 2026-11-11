@@ -1,0 +1,110 @@
+@startuml 4-4-touristagency-reservation-SD
+' SD-01 Rezervacija termina izleta
+' Ostvaruje: UC-03 Rezervacija termina izleta (glavni tijek i alternative 1a, 3a, 5a, 5b, 5c, 7a)
+' Zahtjevi: FR-05, FR-06, FR-07, FR-08, FR-09, FR-11
+' Razina: oblikovanje (bijela kutija). Numeriranje poruka n.m prati korak n specifikacije UC-03.
+mainframe sd SD-01 Rezervacija termina izleta (UC-03)
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+hide footbox
+
+actor "Prijavljeni korisnik" as U
+participant "Web-klijent\n:TourDetailsPage" as W
+participant ":SecurityFilterChain" as S
+participant ":TripController" as TC
+participant ":ReservationController" as RC
+participant ":CurrentUserService" as CU
+participant ":ReservationService" as RS
+participant ":TripSessionRepository" as TSR
+participant ":ReservationRepository" as RR
+participant ":ReservationMailListener" as ML
+participant ":MailService" as MS
+actor "Usluga e-pošte" as SMTP
+
+autonumber 1.1
+U -> W ++ : odabire izlet i termin
+W -> TC ++ : GET /api/trips/{id}
+TC --> W -- : 200 OK (TripDetailsResponse:\ntermini sa slobodnim mjestima, usluge)
+
+autonumber 2.1
+W --> U : slobodna mjesta, cijena po osobi,\ndodatne usluge
+
+autonumber 3.1
+U -> W : broj osoba, odabrane usluge
+W -> W : ukupna cijena =\n(cijena + Σ usluga) × broj osoba
+W --> U : prikaz ukupne cijene
+
+autonumber 4.1
+U -> W : potvrđuje rezervaciju
+W -> S ++ : POST /api/reservations\n{sessionId, participants, addonIds}
+
+alt 1a: korisnik nije prijavljen
+  S --> W : 401 Unauthorized
+  W --> U : ponuda prijave (UC-02)
+
+else korisnik je prijavljen
+  S -> RC ++ : createReservation(request)
+
+  alt 3a: nevaljan zahtjev (participants < 1, nedostaje sessionId)
+    RC --> W : 400 Bad Request (VALIDATION_FAILED)
+    W --> U : poruka o pogrešci
+
+  else zahtjev je valjan
+    autonumber 5.1
+    RC -> CU ++ : requireUserId()
+    CU --> RC -- : customerId
+    RC -> RS ++ : book(customerId, sessionId,\nparticipants, addonIds)
+    note right of RS : @Transactional
+    RS -> TSR ++ : findByIdForUpdate(sessionId)
+    TSR --> RS -- : session (zaključan,\nPESSIMISTIC_WRITE)
+    RS -> RR ++ : sumBookedSeats(sessionId)
+    RR --> RS -- : bookedSeats
+
+    alt 5b: termin ili izlet otkazan, ili je termin započeo
+      RS --> RC : BusinessConflictException\n(SESSION_NOT_BOOKABLE)
+      RC --> W : 409 Conflict
+      W --> U : poruka; povratak na detalje izleta
+
+    else 5a: bookedSeats + participants > maxParticipants
+      RS --> RC : BusinessConflictException\n(NOT_ENOUGH_SEATS)
+      RC --> W : 409 Conflict
+      W -> TC ++ : GET /api/trips/{id}
+      TC --> W -- : osvježena slobodna mjesta
+      W --> U : poruka i novi broj slobodnih mjesta
+
+    else 5c: dodatna usluga nije ponuđena za izlet
+      RS --> RC : IllegalArgumentException
+      RC --> W : 400 Bad Request
+      W --> U : poruka; povratak na korak 3
+
+    else ima dovoljno mjesta
+      RS -> RS : totalPrice = (cijena + Σ usluga)\n× participants
+      RS -> RR ++ : save(reservation)\n[status = CONFIRMED]
+      RR --> RS -- : reservation (id)
+      RS ->> ML : ReservationConfirmedEvent(reservationId)
+      note over RS, RR : commit transakcije
+      RS --> RC -- : reservation
+
+      autonumber 6.1
+      RC --> W -- : 201 Created\n(ReservationCreateResponse)
+      deactivate S
+      W --> U -- : potvrda s podacima rezervacije
+
+      autonumber 7.1
+      note over ML : @TransactionalEventListener + @Async:\nizvodi se nakon commita, u zasebnoj dretvi
+      activate ML
+      ML -> RR ++ : findDetailsById(reservationId)
+      RR --> ML -- : reservation
+      ML -> MS ++ : sendReservationConfirmation(reservation)
+      MS ->> SMTP : e-pošta s potvrdom rezervacije
+      alt 7a: slanje nije uspjelo (MailException)
+        MS -> MS : log.error(...)
+        note right of MS : rezervacija ostaje potvrđena
+      end
+      MS --> ML -- : uspjeh / neuspjeh
+      deactivate ML
+    end
+  end
+end
+@enduml
