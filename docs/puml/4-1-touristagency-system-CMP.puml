@@ -1,0 +1,81 @@
+@startuml 4-1-touristagency-system-CMP
+' CMP-01 Komponente i konektori sustava TouristAgency
+' Pogled komponenata i konektora (logička struktura). Razmještaj na čvorove prikazan je zasebno (DEP-01, poglavlje 6).
+' Konektori su označeni protokolom ili vrstom interakcije. Element označen «planirano» još nije ostvaren.
+mainframe cmp CMP-01 Komponente sustava TouristAgency
+skinparam shadowing false
+skinparam componentStyle uml2
+top to bottom direction
+
+actor "Korisnik\n(turist, administrator,\norganizator, vodič,\nvoditelj agencije)" as User
+
+component "Web-klijent\n(React SPA)" as Web
+
+component "Poslužiteljska aplikacija (Spring Boot, modularni monolit)" as App {
+  portin "REST API\n/api/**" as Api
+
+  component "Sigurnost\n(SecurityConfig,\nOAuth2LoginSuccessHandler)" as Sec
+
+  package "Prezentacijski sloj (controllers)" {
+    component "TripController" as TripApi
+    component "ReservationController\nAdminReservationController" as ResApi
+    component "GuideController" as GuideApi
+    component "AuthController\nRoleManagementController" as UserApi
+    component "StatisticsController" as StatApi
+    component "GlobalExceptionHandler" as Err
+  }
+
+  package "Poslovni sloj (services)" {
+    component "TripService" as TripSvc
+    component "ReservationService" as ResSvc
+    component "GuideService" as GuideSvc
+    component "AuthService\nCurrentUserService\nRoleManagementService" as UserSvc
+    component "StatisticsService" as StatSvc
+    component "ReservationMailListener\nMailService" as Mail
+  }
+
+  package "Sloj pristupa podacima (repositories)" {
+    component "Spring Data JPA\nrepozitoriji" as Repo
+  }
+}
+
+database "PostgreSQL\n(shema: Flyway)" as DB
+
+component "Pružatelj identiteta\n(Microsoft, Google)" <<vanjski sustav>> as IdP
+component "SMTP poslužitelj" <<vanjski sustav>> as SMTP
+component "Kartografske pločice" <<vanjski sustav, planirano>> as Tiles
+
+User --> Web : koristi
+Web --> Api : HTTPS / JSON
+Web ..> Tiles : HTTPS\n«planirano»
+
+Api --> Sec
+Sec <--> IdP : OAuth 2.0 / OIDC\n(Authorization Code)
+Sec --> TripApi
+Sec --> ResApi
+Sec --> GuideApi
+Sec --> UserApi
+Sec --> StatApi
+
+TripApi --> TripSvc
+ResApi --> ResSvc
+ResApi --> UserSvc : ID prijavljenog\nkorisnika
+GuideApi --> GuideSvc
+GuideApi --> UserSvc : provjera uloge
+UserApi --> UserSvc
+StatApi --> StatSvc
+
+TripSvc --> Repo
+ResSvc --> Repo
+GuideSvc --> Repo
+UserSvc --> Repo
+StatSvc --> Repo
+
+ResSvc ..> Mail : aplikacijski događaj\n(ReservationConfirmed/\nCancelledEvent)
+Mail --> SMTP : SMTP
+
+Repo --> DB : JDBC
+
+TripApi ..> Err : iznimke
+ResApi ..> Err : iznimke
+@enduml

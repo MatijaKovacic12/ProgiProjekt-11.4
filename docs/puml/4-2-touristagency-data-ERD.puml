@@ -1,0 +1,140 @@
+@startuml 4-2-touristagency-data-ERD
+' ER-01 Relacijski model podataka sustava TouristAgency
+' Izvor istine: backend/src/main/resources/db/migration/V1__init.sql i V2__AddSoftDelete.sql
+mainframe ER-01 Relacijski model podataka sustava TouristAgency
+skinparam shadowing false
+skinparam linetype ortho
+hide circle
+hide methods
+hide stereotypes
+
+' Stupci created_at i updated_at postoje u gotovo svim tablicama i izostavljeni su radi čitljivosti.
+
+entity "korisnik" as korisnik {
+  * id : BIGINT <<PK>>
+  --
+  * ime : VARCHAR(100)
+  * prezime : VARCHAR(100)
+  * email : VARCHAR(255) <<UNIQUE lower>>
+  display_name : VARCHAR(200)
+  * uloga : VARCHAR(20)
+    USER | ADMIN | ORGANIZER | GUIDE | MANAGER
+  id_slika : BIGINT <<FK>>
+}
+
+entity "korisnik_vanjski" as vanjski {
+  * id : BIGINT <<PK>>
+  --
+  * id_korisnik : BIGINT <<FK>>
+  * provider : VARCHAR(30)
+  * provider_user_id : VARCHAR(255)
+  UNIQUE (provider, provider_user_id)
+  UNIQUE (id_korisnik, provider)
+}
+
+entity "slika" as slika {
+  * id : BIGINT <<PK>>
+  --
+  * putanja : VARCHAR(500) <<UNIQUE>>
+  alt_text : VARCHAR(255)
+}
+
+entity "kategorija" as kategorija {
+  * id : BIGINT <<PK>>
+  --
+  * ime : VARCHAR(100) <<UNIQUE lower>>
+}
+
+entity "usluga" as usluga {
+  * id : BIGINT <<PK>>
+  --
+  * ime : VARCHAR(150) <<UNIQUE lower>>
+  opis : TEXT
+  * cijena : NUMERIC(10,2)
+}
+
+entity "izlet" as izlet {
+  * id : BIGINT <<PK>>
+  --
+  * naziv : VARCHAR(200)
+  * opis : TEXT
+  * id_kategorija : BIGINT <<FK>>
+  * trajanje_minuta : INTEGER
+  * cijena : NUMERIC(10,2)
+  * max_sudionika : INTEGER
+  * broj_vodica : INTEGER
+  * is_active : BOOLEAN
+}
+
+entity "izlet_usluga" as izlet_usluga {
+  * id_izlet : BIGINT <<PK, FK>>
+  * id_usluga : BIGINT <<PK, FK>>
+}
+
+entity "lokacija" as lokacija {
+  * id : BIGINT <<PK>>
+  --
+  * naziv : VARCHAR(200)
+  * opis : VARCHAR(1000)
+  znacaj : VARCHAR(1000)
+  * latitude : NUMERIC(9,6)
+  * longitude : NUMERIC(9,6)
+  * tip : VARCHAR(20)
+    LANDMARK | DEPARTURE | MAIN
+  id_slika : BIGINT <<FK>>
+  * id_izlet : BIGINT <<FK>>
+}
+
+entity "izlet_instanca" as instanca {
+  * id : BIGINT <<PK>>
+  --
+  * id_izlet : BIGINT <<FK>>
+  * termin_pocetak : TIMESTAMPTZ
+  * termin_kraj : TIMESTAMPTZ
+  * is_active : BOOLEAN
+  UNIQUE (id_izlet, termin_pocetak) WHERE is_active
+}
+
+entity "izlet_instanca_vodic" as instanca_vodic {
+  * id_instanca : BIGINT <<PK, FK>>
+  * id_vodic : BIGINT <<PK, FK>>
+}
+
+entity "rezervacija" as rezervacija {
+  * id : BIGINT <<PK>>
+  --
+  * id_korisnik : BIGINT <<FK>>
+  * id_instanca : BIGINT <<FK>>
+  * broj_osoba : INTEGER
+  * status : VARCHAR(20)
+    CONFIRMED | CANCELLED | COMPLETED
+  * ukupna_cijena : NUMERIC(10,2)
+  * created_at : TIMESTAMPTZ
+}
+
+entity "rezervacija_usluga" as rezervacija_usluga {
+  * id_rezervacija : BIGINT <<PK, FK>>
+  * id_usluga : BIGINT <<PK, FK>>
+  --
+  * kolicina : INTEGER
+  * cijena : NUMERIC(10,2)
+}
+
+korisnik ||--o{ vanjski
+slika |o--o{ korisnik
+slika |o--o{ lokacija
+
+kategorija ||--o{ izlet
+izlet ||--o{ izlet_usluga
+usluga ||--o{ izlet_usluga
+izlet ||--o{ lokacija
+izlet ||--o{ instanca
+
+instanca ||--o{ instanca_vodic
+korisnik ||--o{ instanca_vodic : vodič
+
+korisnik ||--o{ rezervacija
+instanca ||--o{ rezervacija
+rezervacija ||--o{ rezervacija_usluga
+usluga ||--o{ rezervacija_usluga
+@enduml

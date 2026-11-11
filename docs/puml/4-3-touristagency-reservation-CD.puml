@@ -1,0 +1,124 @@
+@startuml 4-3-touristagency-reservation-CD
+' CLS-01 Razredi za obradu rezervacija
+' Ostvaruje: UC-03, UC-04, UC-09, UC-10, UC-20; zahtjevi FR-05 do FR-13, FR-22
+mainframe class CLS-01 Razredi za obradu rezervacija
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+hide empty members
+
+package controllers {
+  class ReservationController <<RestController>> {
+    + createReservation(request : ReservationCreateRequest) : ResponseEntity<ReservationCreateResponse>
+    + getMyReservations() : ResponseEntity<List<MyReservationResponse>>
+    + getReservationDetails(reservationId : Long) : ResponseEntity<ReservationDetailsResponse>
+    + cancelReservation(reservationId : Long) : ResponseEntity<ReservationDetailsResponse>
+  }
+
+  class AdminReservationController <<RestController>> {
+    + searchReservations(tripId, sessionId, status, q, createdDate, page, size) : ResponseEntity<Page<AdminReservationResponse>>
+    + cancelReservation(reservationId : Long) : ResponseEntity<AdminReservationResponse>
+  }
+}
+
+package services {
+  class ReservationService <<Service>> {
+    + book(customerId : Long, sessionId : Long, people : int, addonIds : List<Long>) : Reservation
+    + getMyReservations(customerId : Long) : List<Reservation>
+    + getReservationDetails(reservationId : Long, customerId : Long) : Reservation
+    + cancelReservation(reservationId : Long, customerId : Long) : Reservation
+    + cancelReservationAsAdmin(reservationId : Long) : Reservation
+    + searchReservations(tripId, sessionId, status, term, createdDate, pageable) : Page<Reservation>
+    + completeFinishedReservations() : void <<Scheduled>>
+  }
+
+  class CurrentUserService <<Service>> {
+    + requireUserId() : Long
+    + hasRole(role : Role) : boolean
+  }
+
+  class ReservationMailListener <<Component>> {
+    + onReservationConfirmed(event : ReservationConfirmedEvent) <<Async>>
+    + onReservationCancelled(event : ReservationCancelledEvent) <<Async>>
+  }
+
+  class MailService <<Service>> {
+    + sendReservationConfirmation(r : Reservation) : boolean
+    + sendReservationCancellation(r : Reservation) : boolean
+  }
+}
+
+package mappers {
+  class ReservationMapper <<utility>> {
+    + {static} toCreateResponse(r : Reservation) : ReservationCreateResponse
+    + {static} toMyResponse(r : Reservation) : MyReservationResponse
+    + {static} toDetailsResponse(r : Reservation) : ReservationDetailsResponse
+    + {static} toAdminResponse(r : Reservation) : AdminReservationResponse
+  }
+}
+
+package events {
+  class ReservationConfirmedEvent <<record>> {
+    + reservationId : Long
+  }
+  class ReservationCancelledEvent <<record>> {
+    + reservationId : Long
+  }
+}
+
+package repositories {
+  interface ReservationRepository <<JpaRepository>> {
+    + sumBookedSeats(tripSessionId : Long) : long
+    + findDetailsById(id : Long) : Optional<Reservation>
+    + findByCustomerIdOrderByCreatedAtDesc(customerId : Long) : List<Reservation>
+    + markFinished(now : OffsetDateTime) : int
+  }
+  interface TripSessionRepository <<JpaRepository>> {
+    + findByIdForUpdate(id : Long) : Optional<TripSession> <<PESSIMISTIC_WRITE>>
+  }
+}
+
+package models {
+  class Reservation <<Entity>> {
+    - numberOfPeople : Integer
+    - status : ReservationStatus
+    - totalPrice : BigDecimal
+    + addAdditionalService(service : AdditionalService, quantity : int) : void
+  }
+  class TripSession <<Entity>> {
+    - startTime : OffsetDateTime
+    - endTime : OffsetDateTime
+    - active : boolean
+  }
+  class AppUser <<Entity>>
+  class AdditionalService <<Entity>>
+  enum ReservationStatus {
+    CONFIRMED
+    CANCELLED
+    COMPLETED
+  }
+}
+
+ReservationController --> ReservationService
+ReservationController --> CurrentUserService
+ReservationController ..> ReservationMapper
+AdminReservationController --> ReservationService
+AdminReservationController ..> ReservationMapper
+
+ReservationService --> ReservationRepository
+ReservationService --> TripSessionRepository
+ReservationService ..> ReservationConfirmedEvent : <<publish>>
+ReservationService ..> ReservationCancelledEvent : <<publish>>
+
+ReservationMailListener ..> ReservationConfirmedEvent : <<listen>>
+ReservationMailListener ..> ReservationCancelledEvent : <<listen>>
+ReservationMailListener --> MailService
+ReservationMailListener --> ReservationRepository
+
+ReservationRepository ..> Reservation
+TripSessionRepository ..> TripSession
+
+Reservation "*" --> "1" AppUser : customer
+Reservation "*" --> "1" TripSession : tripSession
+Reservation "*" --> "*" AdditionalService : odabrane usluge
+Reservation --> ReservationStatus
+@enduml

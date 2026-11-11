@@ -1,4 +1,5 @@
-const BACKEND_URL = 'http://localhost:8080'
+// Lokalno (npm run dev) backend je na drugom portu; na deployu frontend i backend dijele istu adresu
+const BACKEND_URL = import.meta.env.DEV ? 'http://localhost:8080' : ''
 
 // backend role -> frontend role
 const ROLE_MAP = {
