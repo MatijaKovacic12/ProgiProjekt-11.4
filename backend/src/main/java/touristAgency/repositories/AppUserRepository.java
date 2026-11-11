@@ -26,6 +26,7 @@ public interface AppUserRepository extends JpaRepository<AppUser,Long> {
               and not exists (
                     select sg from TripSessionGuide sg
                     where sg.guide = u
+                      and sg.tripSession.active = true
                       and sg.tripSession.startTime < :end
                       and sg.tripSession.endTime   > :start)
             order by u.lastName, u.firstName

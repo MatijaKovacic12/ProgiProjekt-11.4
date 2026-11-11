@@ -1,6 +1,7 @@
 package touristAgency.unitTests.repositories;
 
 import org.junit.jupiter.api.Test;
+import touristAgency.models.TripSession;
 import touristAgency.models.TripSessionGuide;
 
 import java.util.List;
@@ -58,6 +59,33 @@ public class TripSessionGuideRepositoryTest extends RepositoryTestBase {
         List<TripSessionGuide> upcomingAssignments = tripSessionGuides.findUpcomingAssignments(now);
         assertEquals(1, upcomingAssignments.size());
         assertEquals(guide1.getId(), upcomingAssignments.get(0).getGuide().getId());
+    }
+
+    @Test
+    void hasOverlap_ignoresCancelledSessions() {
+        upcoming.setActive(false);
+        tripSessions.saveAndFlush(upcoming);
+
+        assertFalse(tripSessionGuides.hasOverlap(guide1.getId(),
+                upcoming.getStartTime(), upcoming.getEndTime()));
+        assertEquals(2, users.findAvailableGuides(upcoming.getStartTime(), upcoming.getEndTime()).size());
+    }
+
+    @Test
+    void findActiveAssignmentsForGuide_returnsOnlyActiveNotFinishedSessions() {
+        TripSession cancelled = session(trip, now.plusDays(5));
+        cancelled.setActive(false);
+        tripSessions.save(cancelled);
+        tripSessionGuides.save(new TripSessionGuide(past, guide1));
+        tripSessionGuides.save(new TripSessionGuide(inProgress, guide1));
+        tripSessionGuides.save(new TripSessionGuide(cancelled, guide1));
+        tripSessionGuides.flush();
+
+        List<TripSessionGuide> assignments = tripSessionGuides.findActiveAssignmentsForGuide(guide1.getId(), now);
+
+        assertEquals(List.of(inProgress.getId(), upcoming.getId()),
+                assignments.stream().map(sg -> sg.getTripSession().getId()).toList());
+        assertTrue(tripSessionGuides.findActiveAssignmentsForGuide(guide2.getId(), now).isEmpty());
     }
 
     @Test

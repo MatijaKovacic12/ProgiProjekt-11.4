@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import touristAgency.exceptions.ForbiddenException;
 import touristAgency.exceptions.UnauthorizedException;
 import touristAgency.models.AppUser;
 import touristAgency.models.Role;
@@ -40,6 +41,13 @@ class CurrentUserServiceTest {
         when(token.getName()).thenReturn("sub-1");
         SecurityContextHolder.getContext().setAuthentication(token);
         when(authService.findUser("google", "sub-1")).thenReturn(Optional.ofNullable(user));
+    }
+
+    private OAuth2AuthenticationToken token(String provider, String subject) {
+        OAuth2AuthenticationToken token = mock(OAuth2AuthenticationToken.class);
+        when(token.getAuthorizedClientRegistrationId()).thenReturn(provider);
+        when(token.getName()).thenReturn(subject);
+        return token;
     }
 
     private AppUser user(Long id, Role role) {
@@ -95,5 +103,34 @@ class CurrentUserServiceTest {
     @Test
     void hasRole_FalseWhenNobodyIsLoggedIn() {
         assertFalse(currentUserService.hasRole(Role.ADMIN));
+    }
+
+    @Test
+    void requireUser_whenNotLoggedIn_throwsUnauthorized() {
+        assertThrows(UnauthorizedException.class, () -> currentUserService.requireUser(null));
+    }
+
+    @Test
+    void requireUser_whenUserNotInDatabase_throwsUnauthorized() {
+        when(authService.findUser("google", "sub-1")).thenReturn(Optional.empty());
+
+        assertThrows(UnauthorizedException.class,
+                () -> currentUserService.requireUser(token("google", "sub-1")));
+    }
+
+    @Test
+    void requireRole_whenRoleMatches_returnsUser() {
+        AppUser guide = user(1L, Role.GUIDE);
+        when(authService.findUser("google", "sub-1")).thenReturn(Optional.of(guide));
+
+        assertSame(guide, currentUserService.requireRole(token("google", "sub-1"), Role.GUIDE));
+    }
+
+    @Test
+    void requireRole_whenRoleDoesNotMatch_throwsForbidden() {
+        when(authService.findUser("google", "sub-1")).thenReturn(Optional.of(user(1L, Role.USER)));
+
+        assertThrows(ForbiddenException.class,
+                () -> currentUserService.requireRole(token("google", "sub-1"), Role.GUIDE, Role.ORGANIZER));
     }
 }
