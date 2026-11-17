@@ -25,6 +25,8 @@ public interface ReservationRepository extends JpaRepository<Reservation,Long> {
             """)
     long sumBookedSeats(@Param("tripSessionId") Long tripSessionId);
 
+    List<Reservation> findByTripSessionIdAndStatus(Long sessionId, ReservationStatus status);
+
     @EntityGraph(attributePaths = {
             "tripSession",
             "tripSession.trip",
@@ -34,7 +36,6 @@ public interface ReservationRepository extends JpaRepository<Reservation,Long> {
     })
     List<Reservation> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
 
-    // tripSession.trip.locations je potreban za e-mail (mjesto polaska); locations je Set pa nema "multiple bag" problema
     @EntityGraph(attributePaths = {"customer", "tripSession", "tripSession.trip", "tripSession.trip.locations",
             "reservationAdditionalServices", "reservationAdditionalServices.additionalService"})
     Optional<Reservation> findDetailsById(Long id);

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import touristAgency.events.CancellationReason;
 import touristAgency.events.ReservationCancelledEvent;
 import touristAgency.events.ReservationConfirmedEvent;
 import touristAgency.models.Reservation;
@@ -78,5 +79,16 @@ class ReservationMailListenerTest {
                 .thenThrow(new RuntimeException("mail server ne radi"));
 
         assertDoesNotThrow(() -> listener.onReservationCancelled(new ReservationCancelledEvent(21L)));
+    }
+
+    @Test
+    void onReservationCancelled_ShouldSendSessionCancellationMail_WhenAgencyCancelledSession() {
+        Reservation reservation = new Reservation();
+        when(reservations.findDetailsById(21L)).thenReturn(Optional.of(reservation));
+
+        listener.onReservationCancelled(new ReservationCancelledEvent(21L, CancellationReason.SESSION_CANCELLED));
+
+        verify(mailService).sendSessionCancellation(reservation);
+        verify(mailService, never()).sendReservationCancellation(any());
     }
 }

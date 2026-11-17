@@ -20,6 +20,7 @@ import touristAgency.dto.TripSessionResponse;
 import touristAgency.dto.TripSummaryResponse;
 import touristAgency.dto.UpdateTripRequest;
 import touristAgency.exceptions.BadRequestException;
+import touristAgency.exceptions.BusinessConflictException;
 import touristAgency.exceptions.ResourceNotFoundException;
 import touristAgency.mappers.TripMapper;
 import touristAgency.models.AdditionalService;
@@ -34,6 +35,7 @@ import touristAgency.repositories.LocationRepository;
 import touristAgency.repositories.ReservationRepository;
 import touristAgency.repositories.TripRepository;
 import touristAgency.repositories.TripSessionRepository;
+import touristAgency.services.ReservationService;
 import touristAgency.services.TripService;
 
 import java.math.BigDecimal;
@@ -71,6 +73,9 @@ class TripServiceTest {
 
     @Mock
     private ReservationRepository reservationRepository;
+
+    @Mock
+    private ReservationService reservationService;
 
 
     @Spy
@@ -374,16 +379,18 @@ class TripServiceTest {
     }
 
     @Test
-    @DisplayName("deleteTrip provodi meko brisanje na izletu i njegovim terminima")
+    @DisplayName("deleteTrip provodi meko brisanje na izletu i njegovim terminima te otkazuje rezervacije budućih termina")
     void deleteTrip_softDeletesTripAndSessions() {
         TripSession session = new TripSession();
         session.setId(401L);
         session.setTrip(testTrip);
         session.setActive(true);
+        session.setStartTime(OffsetDateTime.now().plusDays(5));
 
         when(tripRepository.findById(100L)).thenReturn(Optional.of(testTrip));
         when(tripSessionRepository.findByTripIdAndActiveTrueOrderByStartTimeAsc(100L))
                 .thenReturn(List.of(session));
+        when(tripSessionRepository.findByIdForUpdate(401L)).thenReturn(Optional.of(session));
 
         tripService.deleteTrip(100L);
 
@@ -392,6 +399,45 @@ class TripServiceTest {
         assertThat(session.isActive()).isFalse();
         verify(tripRepository).save(testTrip);
         verify(tripSessionRepository).save(session);
+        verify(reservationService).cancelAllForSession(401L);
+    }
+
+    @Test
+    @DisplayName("deleteTrip otkazuje rezervacije svih budućih termina, a termin koji je već počeo samo deaktivira")
+    void deleteTrip_cancelsReservationsOnlyForSessionsThatHaveNotStarted() {
+        TripSession future1 = new TripSession();
+        future1.setId(401L);
+        future1.setTrip(testTrip);
+        future1.setActive(true);
+        future1.setStartTime(OffsetDateTime.now().plusDays(2));
+
+        TripSession future2 = new TripSession();
+        future2.setId(402L);
+        future2.setTrip(testTrip);
+        future2.setActive(true);
+        future2.setStartTime(OffsetDateTime.now().plusDays(9));
+
+        TripSession started = new TripSession();
+        started.setId(403L);
+        started.setTrip(testTrip);
+        started.setActive(true);
+        started.setStartTime(OffsetDateTime.now().minusHours(1));
+
+        when(tripRepository.findById(100L)).thenReturn(Optional.of(testTrip));
+        when(tripSessionRepository.findByTripIdAndActiveTrueOrderByStartTimeAsc(100L))
+                .thenReturn(List.of(started, future1, future2));
+        when(tripSessionRepository.findByIdForUpdate(401L)).thenReturn(Optional.of(future1));
+        when(tripSessionRepository.findByIdForUpdate(402L)).thenReturn(Optional.of(future2));
+        when(tripSessionRepository.findByIdForUpdate(403L)).thenReturn(Optional.of(started));
+
+        tripService.deleteTrip(100L);
+
+        assertThat(future1.isActive()).isFalse();
+        assertThat(future2.isActive()).isFalse();
+        assertThat(started.isActive()).isFalse();
+        verify(reservationService).cancelAllForSession(401L);
+        verify(reservationService).cancelAllForSession(402L);
+        verify(reservationService, never()).cancelAllForSession(403L);
     }
 
     @Test
@@ -439,19 +485,79 @@ class TripServiceTest {
     }
 
     @Test
-    @DisplayName("cancelSession deaktivira termin")
+    @DisplayName("cancelSession deaktivira termin i otkazuje njegove potvrđene rezervacije")
     void cancelSession_deactivatesSession() {
         TripSession session = new TripSession();
         session.setId(502L);
         session.setTrip(testTrip);
         session.setActive(true);
+        session.setStartTime(OffsetDateTime.now().plusDays(3));
 
-        when(tripSessionRepository.findById(502L)).thenReturn(Optional.of(session));
+        when(tripSessionRepository.findByIdForUpdate(502L)).thenReturn(Optional.of(session));
 
         tripService.cancelSession(100L, 502L);
 
         assertThat(session.isActive()).isFalse();
         verify(tripSessionRepository).save(session);
+        verify(reservationService).cancelAllForSession(502L);
+    }
+
+    @Test
+    @DisplayName("cancelSession baca 409 (SESSION_ALREADY_CANCELLED) ako je termin već otkazan")
+    void cancelSession_alreadyCancelled_throwsConflict() {
+        TripSession session = new TripSession();
+        session.setId(502L);
+        session.setTrip(testTrip);
+        session.setActive(false);
+        session.setStartTime(OffsetDateTime.now().plusDays(3));
+
+        when(tripSessionRepository.findByIdForUpdate(502L)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> tripService.cancelSession(100L, 502L))
+                .isInstanceOf(BusinessConflictException.class)
+                .extracting(e -> ((BusinessConflictException) e).getCode())
+                .isEqualTo("SESSION_ALREADY_CANCELLED");
+
+        verify(tripSessionRepository, never()).save(any());
+        verify(reservationService, never()).cancelAllForSession(any());
+    }
+
+    @Test
+    @DisplayName("cancelSession baca 409 (SESSION_ALREADY_STARTED) ako je termin već počeo")
+    void cancelSession_alreadyStarted_throwsConflict() {
+        TripSession session = new TripSession();
+        session.setId(502L);
+        session.setTrip(testTrip);
+        session.setActive(true);
+        session.setStartTime(OffsetDateTime.now().minusMinutes(10));
+
+        when(tripSessionRepository.findByIdForUpdate(502L)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> tripService.cancelSession(100L, 502L))
+                .isInstanceOf(BusinessConflictException.class)
+                .extracting(e -> ((BusinessConflictException) e).getCode())
+                .isEqualTo("SESSION_ALREADY_STARTED");
+
+        assertThat(session.isActive()).isTrue();
+        verify(tripSessionRepository, never()).save(any());
+        verify(reservationService, never()).cancelAllForSession(any());
+    }
+
+    @Test
+    @DisplayName("cancelSession baca BadRequestException ako termin ne pripada izletu")
+    void cancelSession_wrongTrip_throwsBadRequest() {
+        TripSession session = new TripSession();
+        session.setId(502L);
+        session.setTrip(testTrip);
+        session.setActive(true);
+        session.setStartTime(OffsetDateTime.now().plusDays(3));
+
+        when(tripSessionRepository.findByIdForUpdate(502L)).thenReturn(Optional.of(session));
+
+        assertThatThrownBy(() -> tripService.cancelSession(999L, 502L))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(reservationService, never()).cancelAllForSession(any());
     }
 
     @Test

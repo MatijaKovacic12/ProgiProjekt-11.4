@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import touristAgency.events.CancellationReason;
 import touristAgency.events.ReservationCancelledEvent;
 import touristAgency.events.ReservationConfirmedEvent;
 import touristAgency.exceptions.BusinessConflictException;
@@ -168,6 +169,23 @@ public class ReservationService {
         events.publishEvent(new ReservationCancelledEvent(saved.getId()));
 
         return saved;
+    }
+
+    @Transactional
+    public int cancelAllForSession(Long sessionId) {
+        List<Reservation> confirmed = reservations.findByTripSessionIdAndStatus(sessionId, ReservationStatus.CONFIRMED);
+
+        for (Reservation reservation : confirmed) {
+            reservation.setStatus(ReservationStatus.CANCELLED);
+        }
+
+        reservations.saveAll(confirmed);
+
+        for (Reservation reservation : confirmed) {
+            events.publishEvent(new ReservationCancelledEvent(reservation.getId(), CancellationReason.SESSION_CANCELLED));
+        }
+
+        return confirmed.size();
     }
 
     @Transactional

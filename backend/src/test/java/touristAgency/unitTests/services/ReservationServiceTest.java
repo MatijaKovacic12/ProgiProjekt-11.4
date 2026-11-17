@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.mockito.ArgumentCaptor;
+import touristAgency.events.CancellationReason;
 import touristAgency.events.ReservationCancelledEvent;
 import touristAgency.events.ReservationConfirmedEvent;
 import touristAgency.exceptions.BusinessConflictException;
@@ -1011,5 +1012,45 @@ class ReservationServiceTest {
         reservationService.cancelReservationAsAdmin(21L);
 
         verify(events).publishEvent(new ReservationCancelledEvent(21L));
+    }
+
+    // ---------------------------------------------------------------------
+    // otkazivanje termina: sve potvrđene rezervacije
+    // ---------------------------------------------------------------------
+
+    private Reservation confirmedReservation(Long id) {
+        Reservation reservation = new Reservation();
+        reservation.setId(id);
+        reservation.setStatus(ReservationStatus.CONFIRMED);
+        return reservation;
+    }
+
+    @Test
+    void cancelAllForSession_ShouldCancelBothConfirmedReservationsAndPublishTwoEvents() {
+        // termin ima 2 potvrđene i 1 otkazanu; upit vraća samo potvrđene pa otkazana ostaje netaknuta
+        Reservation first = confirmedReservation(11L);
+        Reservation second = confirmedReservation(12L);
+
+        when(reservations.findByTripSessionIdAndStatus(7L, ReservationStatus.CONFIRMED))
+                .thenReturn(List.of(first, second));
+
+        int cancelled = reservationService.cancelAllForSession(7L);
+
+        assertEquals(2, cancelled);
+        assertEquals(ReservationStatus.CANCELLED, first.getStatus());
+        assertEquals(ReservationStatus.CANCELLED, second.getStatus());
+        verify(reservations).saveAll(List.of(first, second));
+        verify(events).publishEvent(new ReservationCancelledEvent(11L, CancellationReason.SESSION_CANCELLED));
+        verify(events).publishEvent(new ReservationCancelledEvent(12L, CancellationReason.SESSION_CANCELLED));
+        verify(events, times(2)).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void cancelAllForSession_ShouldDoNothing_WhenSessionHasNoConfirmedReservations() {
+        when(reservations.findByTripSessionIdAndStatus(7L, ReservationStatus.CONFIRMED)).thenReturn(List.of());
+
+        assertEquals(0, reservationService.cancelAllForSession(7L));
+
+        verify(events, never()).publishEvent(any(Object.class));
     }
 }

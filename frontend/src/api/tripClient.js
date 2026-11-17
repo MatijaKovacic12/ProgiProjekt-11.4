@@ -92,3 +92,11 @@ export async function addTripSession(tripId, sessionData) {
     });
     return handleResponse(res);
 }
+
+
+export async function cancelTripSession(tripId, sessionId) {
+    const res = await fetch(`/api/trips/${tripId}/sessions/${sessionId}`, {
+        method: 'DELETE',
+    });
+    return handleResponse(res);
+}

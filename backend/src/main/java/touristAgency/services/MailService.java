@@ -78,6 +78,28 @@ public class MailService {
         }
     }
 
+    public boolean sendSessionCancellation(Reservation r) {
+        try {
+            Trip trip = r.getTripSession().getTrip();
+
+            String to = r.getCustomer().getEmail();
+            String subject = "Termin je otkazan: " + trip.getName();
+
+            String text = "Poštovani/a " + r.getCustomer().getFirstName() + ",\n\n"
+                    + "nažalost, agencija je otkazala termin izleta koji ste rezervirali, "
+                    + "pa je i vaša rezervacija otkazana.\n\n"
+                    + "Izlet: " + trip.getName() + "\n"
+                    + "Termin: " + r.getTripSession().getStartTime().format(DATE_FORMAT) + "\n"
+                    + "Broj osoba: " + r.getNumberOfPeople() + "\n\n"
+                    + "Ispričavamo se zbog neugodnosti. Možete rezervirati neki drugi termin na našim stranicama.";
+
+            return sendMail(to, subject, text);
+        } catch (RuntimeException e) {
+            log.error("Ne mogu složiti obavijest o otkazanom terminu za rezervaciju {}: {}", r.getId(), e.getMessage());
+            return false;
+        }
+    }
+
     private String findDeparture(Trip trip) {
         for (Location l : trip.getLocations()) {
             if (l.getType() == LocationType.DEPARTURE) {
