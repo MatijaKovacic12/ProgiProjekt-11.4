@@ -1,4 +1,5 @@
 import { apiRequest } from './baseApiClient'
+import { getTripSessions } from './tripClient.js'
 
 export const STATUS_LABELS = {
     CONFIRMED: 'Confirmed',CANCELLED: 'Cancelled',COMPLETED: 'Completed'
@@ -29,9 +30,10 @@ export function cancelReservation(reservationId) {
     return apiRequest('POST', `/reservations/${reservationId}/cancel`)
 }
 
-export function searchAdminReservations({ tripId, status, q, createdDate, page = 0, size = 10 } = {}) {
+export function searchAdminReservations({ tripId, sessionId, status, q, createdDate, page = 0, size = 10 } = {}) {
     const params = new URLSearchParams()
     if (tripId) params.set('tripId', tripId)
+    if (sessionId) params.set('sessionId', sessionId)
     if (status) params.set('status', status)
     if (q && q.trim()) params.set('q', q.trim())
     if (createdDate) params.set('createdDate', createdDate)
@@ -42,4 +44,16 @@ export function searchAdminReservations({ tripId, status, q, createdDate, page =
 
 export function adminCancelReservation(reservationId) {
     return apiRequest('POST', `/admin/reservations/${reservationId}/cancel`)
+}
+
+export async function countConfirmedForSession(sessionId) {
+    const page = await searchAdminReservations({ sessionId, status: 'CONFIRMED', size: 1 })
+    return page.totalElements ?? 0
+}
+
+export async function countAffectedByTripDeletion(tripId) {
+    const sessions = await getTripSessions(tripId)
+    const upcoming = sessions.filter((s) => new Date(s.startTime) > new Date())
+    const counts = await Promise.all(upcoming.map((s) => countConfirmedForSession(s.id)))
+    return counts.reduce((sum, n) => sum + n, 0)
 }

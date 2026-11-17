@@ -174,4 +174,27 @@ class MailServiceTest {
         assertFalse(sent);
         verify(mailSender, never()).send(any(SimpleMailMessage.class));
     }
+
+    @Test
+    void sessionCancellation_saysThatAgencyCancelledTheSession() {
+        Reservation r = sampleReservation(true);
+
+        boolean sent = mailService.sendSessionCancellation(r);
+
+        SimpleMailMessage msg = sentMessage();
+        String text = msg.getText();
+        assertTrue(sent);
+        assertArrayEquals(new String[]{"ana@test.com"}, msg.getTo());
+        assertEquals("Termin je otkazan: Rafting na Cetini", msg.getSubject());
+        assertTrue(text.contains("agencija je otkazala termin"));
+        assertTrue(text.contains("Izlet: Rafting na Cetini"));
+        assertTrue(text.contains("Termin: 15.11.2026. u 09:00"));
+        assertTrue(text.contains("Broj osoba: 3"));
+    }
+
+    @Test
+    void sessionCancellation_returnsFalseForIncompleteReservation() {
+        assertFalse(mailService.sendSessionCancellation(new Reservation()));
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
 }

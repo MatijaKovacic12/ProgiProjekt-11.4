@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
+import touristAgency.events.CancellationReason;
 import touristAgency.events.ReservationCancelledEvent;
 import touristAgency.events.ReservationConfirmedEvent;
 import touristAgency.repositories.ReservationRepository;
@@ -37,7 +38,13 @@ public class ReservationMailListener {
     public void onReservationCancelled(ReservationCancelledEvent event) {
         try {
             reservations.findDetailsById(event.reservationId()).ifPresentOrElse(
-                            mailService::sendReservationCancellation,
+                            reservation -> {
+                                if (event.reason() == CancellationReason.SESSION_CANCELLED) {
+                                    mailService.sendSessionCancellation(reservation);
+                                } else {
+                                    mailService.sendReservationCancellation(reservation);
+                                }
+                            },
                             () -> log.warn("Rezervacija {} nije pronađena, obavijest o otkazivanju nije poslana.",
                                     event.reservationId()));
         } catch (RuntimeException e) {

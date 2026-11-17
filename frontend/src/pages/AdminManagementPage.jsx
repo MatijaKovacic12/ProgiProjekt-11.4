@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { getTripsPage, createTrip, updateTrip, deleteTrip } from '../api/tripClient.js';
 import { getCategories, getAdditionalServices } from '../api/catalogClient.js';
 import AdminReservations from '../components/AdminReservations.jsx';
+import AdminTourSessions from '../components/AdminTourSessions.jsx';
+import { countAffectedByTripDeletion } from '../api/reservationClient.js';
 
 const PAGE_SIZE = 10;
 
@@ -77,6 +79,7 @@ const [catalogError, setCatalogError] = useState(null);
   };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [sessionsTour, setSessionsTour] = useState(null);
   const [editingTourId, setEditingTourId] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
@@ -99,8 +102,6 @@ const [catalogError, setCatalogError] = useState(null);
     hour: '10',
     minute: '00',
   });
-
-  // handle creating/editing tour
 
   const handleOpenAddModal = () => {
     setEditingTourId(null);
@@ -247,7 +248,22 @@ const [catalogError, setCatalogError] = useState(null);
   };
 
   const handleDeleteTour = async (tourId) => {
-    if (!window.confirm('Are you sure you want to delete this tour?')) {
+    // upozorenje: brisanje izleta otkazuje potvrđene rezervacije svih njegovih budućih termina
+    let affected = null;
+    try {
+      affected = await countAffectedByTripDeletion(tourId);
+    } catch {
+      affected = null;
+    }
+
+    const warning =
+      affected === null
+        ? 'Potvrđene rezervacije budućih termina bit će otkazane, a korisnici će dobiti e-mail.'
+        : affected === 0
+          ? 'Nema potvrđenih rezervacija koje bi bile pogođene.'
+          : `Broj potvrđenih rezervacija koje će biti otkazane: ${affected}. Korisnici će dobiti e-mail.`;
+
+    if (!window.confirm(`Are you sure you want to delete this tour?\n\n${warning}`)) {
       return;
     }
 
@@ -351,6 +367,13 @@ const [catalogError, setCatalogError] = useState(null);
                       <button
                         type="button"
                         className="btn btn-sm btn-secondary"
+                        onClick={() => setSessionsTour(tour)}
+                      >
+                        Sessions
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-secondary"
                         style={{ color: '#b91c1c' }}
                         onClick={() => handleDeleteTour(tour.id)}
                         title="Delete tour"
@@ -398,6 +421,14 @@ const [catalogError, setCatalogError] = useState(null);
       </section>
 
       <AdminReservations />
+
+      {sessionsTour && (
+        <AdminTourSessions
+          tour={sessionsTour}
+          onClose={() => setSessionsTour(null)}
+          onChanged={reloadTours}
+        />
+      )}
 
       {isModalOpen && (
         <div className="modal-backdrop" onClick={handleCloseModal}>

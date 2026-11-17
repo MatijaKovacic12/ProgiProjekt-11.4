@@ -129,6 +129,15 @@ public class ReservationRepositoryTest extends RepositoryTestBase {
     }
 
     @Test
+    void findByTripSessionIdAndStatus_returnsOnlyMatchingReservationsOfThatSession() {
+        List<Reservation> confirmed = reservations.findByTripSessionIdAndStatus(upcoming.getId(), ReservationStatus.CONFIRMED);
+
+        assertEquals(1, confirmed.size());
+        assertEquals(upcomingRes.getId(), confirmed.get(0).getId());
+        assertEquals(1, reservations.findByTripSessionIdAndStatus(upcoming.getId(), ReservationStatus.CANCELLED).size());
+    }
+
+    @Test
     void cancelAllForSession_setsUpdatedAt() {
         OffsetDateTime cancelTime = now.plusMinutes(5);
         reservations.cancelAllForSession(upcoming.getId(), cancelTime);

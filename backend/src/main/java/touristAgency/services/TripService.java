@@ -16,6 +16,7 @@ import touristAgency.dto.TripSessionResponse;
 import touristAgency.dto.TripSummaryResponse;
 import touristAgency.dto.UpdateTripRequest;
 import touristAgency.exceptions.BadRequestException;
+import touristAgency.exceptions.BusinessConflictException;
 import touristAgency.exceptions.ResourceNotFoundException;
 import touristAgency.mappers.TripMapper;
 import touristAgency.models.AdditionalService;
@@ -51,6 +52,7 @@ public class TripService {
     private final TripSessionRepository tripSessionRepository;
     private final AdditionalServiceRepository additionalServiceRepository;
     private final ReservationRepository reservationRepository;
+    private final ReservationService reservationService;
     private final TripMapper tripMapper;
 
     // CONSTRUCTOR INJECTION (zahtjev iz zadatka):
@@ -60,6 +62,7 @@ public class TripService {
                        TripSessionRepository tripSessionRepository,
                        AdditionalServiceRepository additionalServiceRepository,
                        ReservationRepository reservationRepository,
+                       ReservationService reservationService,
                        TripMapper tripMapper) {
         this.tripRepository = tripRepository;
         this.categoryRepository = categoryRepository;
@@ -67,6 +70,7 @@ public class TripService {
         this.tripSessionRepository = tripSessionRepository;
         this.additionalServiceRepository = additionalServiceRepository;
         this.reservationRepository = reservationRepository;
+        this.reservationService = reservationService;
         this.tripMapper = tripMapper;
     }
 
@@ -358,10 +362,18 @@ public class TripService {
         trip.setActive(false);
         tripRepository.save(trip);
 
+        OffsetDateTime now = OffsetDateTime.now();
         List<TripSession> sessions = tripSessionRepository.findByTripIdAndActiveTrueOrderByStartTimeAsc(id);
-        for (TripSession session : sessions) {
+        for (TripSession activeSession : sessions) {
+            // zaključavanje termina: istodobna rezervacija čeka commit pa vidi da termin više nije aktivan
+            TripSession session = tripSessionRepository.findByIdForUpdate(activeSession.getId()).orElse(activeSession);
             session.setActive(false);
             tripSessionRepository.save(session);
+
+            // rezervacije otkazujemo samo za termine koji još nisu počeli; one za termine koji su već održani ostaju
+            if (session.getStartTime() != null && session.getStartTime().isAfter(now)) {
+                reservationService.cancelAllForSession(session.getId());
+            }
         }
     }
 
@@ -416,15 +428,27 @@ public class TripService {
 
 
     public void cancelSession(Long tripId, Long sessionId) {
-        TripSession session = tripSessionRepository.findById(sessionId)
+        // zaključavanje: istodobna rezervacija čeka commit pa vidi da termin više nije aktivan
+        TripSession session = tripSessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Trip session with id " + sessionId + " not found"));
 
         if (!session.getTrip().getId().equals(tripId)) {
             throw new BadRequestException("Session " + sessionId + " does not belong to trip " + tripId);
         }
 
+        if (!session.isActive()) {
+            throw new BusinessConflictException("SESSION_ALREADY_CANCELLED", "Termin je već otkazan.");
+        }
+
+        if (session.getStartTime() != null && !session.getStartTime().isAfter(OffsetDateTime.now())) {
+            throw new BusinessConflictException("SESSION_ALREADY_STARTED",
+                    "Termin koji je započeo ne može se otkazati.");
+        }
+
         session.setActive(false);
         tripSessionRepository.save(session);
+
+        reservationService.cancelAllForSession(sessionId);
     }
 
 
