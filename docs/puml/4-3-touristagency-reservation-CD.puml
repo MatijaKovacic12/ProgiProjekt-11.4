@@ -1,6 +1,6 @@
 @startuml 4-3-touristagency-reservation-CD
 ' CLS-01 Razredi za obradu rezervacija
-' Ostvaruje: UC-03, UC-04, UC-09, UC-10, UC-20; zahtjevi FR-05 do FR-13, FR-22
+' Ostvaruje: UC-03, UC-04, UC-09, UC-10, UC-20; zahtjevi FR-04 do FR-12, FR-21
 mainframe class CLS-01 Razredi za obradu rezervacija
 skinparam shadowing false
 skinparam classAttributeIconSize 0

@@ -1,8 +1,8 @@
 @startuml 4-1-touristagency-system-CMP
-' CMP-01 Komponente i konektori sustava TouristAgency
-' Pogled komponenata i konektora (logička struktura). Razmještaj na čvorove prikazan je zasebno (DEP-01, poglavlje 6).
-' Konektori su označeni protokolom ili vrstom interakcije. Element označen «planirano» još nije ostvaren.
-mainframe cmp CMP-01 Komponente sustava TouristAgency
+' CMP-01 Komponente i konektori sustava Progi-Tours
+' Pogled komponenata i konektora (logička struktura).
+' Konektori su označeni protokolom ili vrstom interakcije.
+mainframe cmp CMP-01 Komponente sustava Progi-Tours
 skinparam shadowing false
 skinparam componentStyle uml2
 top to bottom direction
@@ -11,7 +11,7 @@ actor "Korisnik\n(turist, administrator,\norganizator, vodič,\nvoditelj agencij
 
 component "Web-klijent (React SPA)" as Web {
   component "Stranice i API klijenti\n(pages, api/*Client.js)" as Pages
-  component "Karta i položaj\n(Leaflet, Geolocation API)" <<planirano>> as MapUi
+  component "Karta i položaj\n(Leaflet, Geolocation API)" as MapUi
 }
 
 component "Poslužiteljska aplikacija (Spring Boot, modularni monolit)" as App {
@@ -50,14 +50,14 @@ database "PostgreSQL\n(shema: Flyway)" as DB
 
 component "Pružatelj identiteta\n(Microsoft, Google)" <<vanjski sustav>> as IdP
 component "SMTP poslužitelj" <<vanjski sustav>> as SMTP
-component "Kartografske pločice" <<vanjski sustav, planirano>> as Tiles
+component "Kartografske pločice" <<vanjski sustav>> as Tiles
 
 User --> Pages : koristi
 Pages --> Api : HTTPS / JSON
 Pages ..> Static : HTTPS\n(učitavanje klijenta)
 Static --> Spa
-MapUi ..> Tiles : HTTPS\n«planirano»
-MapUi ..> Api : GET /api/trips/{id}\n(znamenitosti)\n«planirano»
+MapUi ..> Tiles : HTTPS
+MapUi ..> Api : GET /api/trips/{id}\n(znamenitosti)
 
 Api --> Sec
 Sec <--> IdP : OAuth 2.0 / OIDC\n(Authorization Code)

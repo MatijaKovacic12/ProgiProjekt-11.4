@@ -1,7 +1,7 @@
 @startuml 4-4-touristagency-reservation-SD
 ' SD-01 Rezervacija termina izleta
 ' Ostvaruje: UC-03 Rezervacija termina izleta (glavni tijek i alternative 1a, 3a, 5a, 5b, 5c, 7a)
-' Zahtjevi: FR-05, FR-06, FR-07, FR-08, FR-09, FR-11
+' Zahtjevi: FR-04, FR-05, FR-06, FR-07, FR-08, FR-10
 ' Razina: oblikovanje (bijela kutija). Numeriranje poruka n.m prati korak n specifikacije UC-03.
 mainframe sd SD-01 Rezervacija termina izleta (UC-03)
 skinparam shadowing false
