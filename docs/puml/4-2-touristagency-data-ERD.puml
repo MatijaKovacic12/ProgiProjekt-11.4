@@ -1,7 +1,7 @@
 @startuml 4-2-touristagency-data-ERD
-' ER-01 Relacijski model podataka sustava TouristAgency
+' ER-01 Relacijski model podataka sustava Progi-Tours
 ' Izvor istine: backend/src/main/resources/db/migration/V1__init.sql i V2__AddSoftDelete.sql
-mainframe ER-01 Relacijski model podataka sustava TouristAgency
+mainframe ER-01 Relacijski model podataka sustava Progi-Tours
 skinparam shadowing false
 skinparam linetype ortho
 hide circle

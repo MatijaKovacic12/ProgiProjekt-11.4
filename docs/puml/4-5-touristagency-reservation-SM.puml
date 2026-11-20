@@ -1,6 +1,6 @@
 @startuml 4-5-touristagency-reservation-SM
 ' STM-01 Stanja rezervacije (Reservation.status, enum ReservationStatus)
-' Zahtjevi: FR-09, FR-10, FR-13, FR-22. Prijelazi su zapisani kao: događaj [uvjet] / akcija
+' Zahtjevi: FR-08, FR-09, FR-12, FR-21. Prijelazi su zapisani kao: događaj [uvjet] / akcija
 mainframe stm STM-01 Stanja rezervacije
 skinparam shadowing false
 hide empty description
@@ -15,13 +15,13 @@ CONFIRMED --> CANCELLED : cancelReservation(id, userId)\n[vlasnik i termin još 
 CONFIRMED --> CANCELLED : cancelReservationAsAdmin(id)\n/ ReservationCancelledEvent
 CONFIRMED --> COMPLETED : completeFinishedReservations()\n[@Scheduled svakih 60 s,\ntermin_kraj <= now]
 
-CONFIRMED -[dashed]-> CANCELLED : «planirano»\ncancelSession(id) / deleteTrip(id)\n/ ReservationCancelledEvent
+CONFIRMED --> CANCELLED : cancelAllForSession(sessionId)\n[termin otkazan: cancelSession / deleteTrip]\n/ ReservationCancelledEvent
 
 CANCELLED --> [*]
 COMPLETED --> [*]
 
 note right of CANCELLED
-  Otkazana ili gotova rezervacija
+  Otkazana ili realizirana rezervacija
   ne može se ponovno otkazati
   (409 RESERVATION_NOT_CANCELLABLE).
 end note
@@ -29,7 +29,7 @@ end note
 note bottom of CONFIRMED
   Otkazivanje termina ili izleta
   (TripService.cancelSession / deleteTrip)
-  trenutno ne mijenja status rezervacija;
-  isprekidani prijelaz je planiran.
+  otkazuje sve potvrđene rezervacije termina
+  u istoj transakciji.
 end note
 @enduml
