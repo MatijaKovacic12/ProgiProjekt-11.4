@@ -21,6 +21,8 @@ function App() {
     () => localStorage.getItem('userRole') || 'unregistered'
   );
 
+  const [userEmail, setUserEmail] = useState(null);
+
   const [tours, setTours] = useState([]);
   const [loadingTours, setLoadingTours] = useState(true);
   const [toursPage, setToursPage] = useState(0);
@@ -85,6 +87,7 @@ function App() {
     getCurrentUser().then((user) => {
       if (user) {
         setUserRole(user.role);
+        setUserEmail(user.email);
         localStorage.setItem('userRole', user.role);
       }
     });
@@ -102,6 +105,7 @@ function App() {
 
   const handleLogout = () => {
     logout();
+    setUserEmail(null);
     setUserRole('unregistered');
     localStorage.setItem('userRole', 'unregistered');
     navigate('/login');
@@ -327,6 +331,9 @@ function App() {
                 </>
               )}
 
+              {userEmail && (
+                <span style={{ fontSize: '0.875rem', color: '#4b5563' }}>{userEmail}</span>
+              )}
               {isUnregistered ? (
                 <button
                   type="button"
@@ -463,6 +470,9 @@ function App() {
 
       {isBackofficeRoute && (
         <div className="backoffice-top-bar">
+          {userEmail && (
+            <span style={{ fontSize: '0.875rem', color: '#4b5563' }}>{userEmail}</span>
+          )}
           <button
             type="button"
             onClick={handleLogout}
