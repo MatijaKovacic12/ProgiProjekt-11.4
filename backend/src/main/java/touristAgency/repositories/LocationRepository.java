@@ -20,6 +20,9 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
 
     List<Location> findByTripId(Long tripId);
 
+    @Query("SELECT DISTINCT l.name FROM Location l WHERE l.type = :type AND l.trip.active = true ORDER BY l.name")
+    List<String> findDistinctNamesByType(@Param("type") LocationType type);
+
 
     @Query("""
             SELECT l

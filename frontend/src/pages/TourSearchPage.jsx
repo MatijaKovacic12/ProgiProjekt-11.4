@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getCategories } from '../api/catalogClient.js';
+import { getCategories, getLocations } from '../api/catalogClient.js';
 
 function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false, loadingMore = false, onShowMore }) {
     const [showFilters, setShowFilters] = useState(false);
@@ -7,6 +7,11 @@ function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false
     const [selectedCategory, setSelectedCategory] = useState('');
     const [maxPrice, setMaxPrice] = useState('');
     const [categories, setCategories] = useState([]);
+    const [locations, setLocations] = useState([]);
+    const [selectedLocation, setSelectedLocation] = useState('');
+    const [selectedDuration, setSelectedDuration] = useState('');
+    const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
+    const [participants, setParticipants] = useState('');
 
     useEffect(() => {
         let isMounted = true;
@@ -16,6 +21,13 @@ function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false
             })
             .catch(() => {
                 if (isMounted) setCategories([]);
+            });
+        getLocations()
+            .then((data) => {
+                if (isMounted) setLocations(data);
+            })
+            .catch(() => {
+                if (isMounted) setLocations([]);
             });
         return () => {
             isMounted = false;
@@ -34,6 +46,31 @@ function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false
             return false;
         }
         if (maxPrice && Number(tour.price) > Number(maxPrice)) {
+            return false;
+        }
+        if (selectedLocation && tour.location !== selectedLocation) {
+            return false;
+        }
+        if (selectedDuration) {
+            const minutes = Number(tour.durationMinutes);
+            if (selectedDuration === 'short' && !(minutes <= 150)) return false;
+            if (selectedDuration === 'medium' && !(minutes >= 180 && minutes <= 300)) return false;
+            if (selectedDuration === 'full' && !(minutes > 300)) return false;
+        }
+        if (selectedTimeSlot) {
+            const slots = (tour.scheduledTimeSlots || []).filter(Boolean).map((slot) => new Date(slot));
+            const matchSlot = slots.some((date) => {
+                const hour = date.getHours();
+                const day = date.getDay();
+                if (selectedTimeSlot === 'morning') return hour >= 8 && hour < 12;
+                if (selectedTimeSlot === 'afternoon') return hour >= 12 && hour < 17;
+                if (selectedTimeSlot === 'evening') return hour >= 17;
+                if (selectedTimeSlot === 'weekend') return day === 0 || day === 6;
+                return true;
+            });
+            if (!matchSlot) return false;
+        }
+        if (participants && Number(tour.maxParticipants) < Number(participants)) {
             return false;
         }
         return true;
@@ -78,7 +115,7 @@ function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false
           <div className="filter-grid">
             <div>
               <label className="form-label" htmlFor="filter-timeslot">Time Slot</label>
-              <select id="filter-timeslot" className="form-select" defaultValue="">
+              <select id="filter-timeslot" className="form-select" value={selectedTimeSlot} onChange={(e) => setSelectedTimeSlot(e.target.value)}>
                 <option value="">Any time slot</option>
                 <option value="morning">Morning (08:00 - 12:00)</option>
                 <option value="afternoon">Afternoon (12:00 - 17:00)</option>
@@ -89,16 +126,11 @@ function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false
 
             <div>
               <label className="form-label" htmlFor="filter-location">Location</label>
-              <select id="filter-location" className="form-select" defaultValue="">
+              <select id="filter-location" className="form-select" value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)}>
                 <option value="">All locations</option>
-                <option value="zagreb">Zagreb &amp; Medvednica</option>
-                <option value="plitvice">Plitvice Lakes</option>
-                <option value="split">Split &amp; Islands</option>
-                <option value="dubrovnik">Dubrovnik</option>
-                <option value="zadar">Zadar archipelago</option>
-                <option value="omis">Cetina River / Omiš</option>
-                <option value="porec">Poreč / Istria</option>
-                <option value="korcula">Korčula</option>
+                {locations.map((location) => (
+                  <option key={location} value={location}>{location}</option>
+                ))}
               </select>
             </div>
 
@@ -121,7 +153,7 @@ function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false
 
             <div>
               <label className="form-label" htmlFor="filter-duration">Duration</label>
-              <select id="filter-duration" className="form-select" defaultValue="">
+              <select id="filter-duration" className="form-select" value={selectedDuration} onChange={(e) => setSelectedDuration(e.target.value)}>
                 <option value="">Any duration</option>
                 <option value="short">Up to 2.5 hours</option>
                 <option value="medium">3 to 5 hours</option>
@@ -152,6 +184,8 @@ function TourSearchPage({ navigate, tours = [], loading = false, hasMore = false
                 placeholder="e.g. 2"
                 min="1"
                 max="25"
+                value={participants}
+                onChange={(e) => setParticipants(e.target.value)}
               />
             </div>
           </div>
